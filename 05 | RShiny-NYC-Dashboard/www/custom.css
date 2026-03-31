@@ -1,0 +1,773 @@
+/* ============================================================================
+   NYC Traffic Accidents 2020 — Dark Theme
+   ============================================================================ */
+
+/* -- Design Tokens --------------------------------------------------------- */
+:root {
+  --bg-primary:    #161b22;
+  --bg-secondary:  #0d1117;
+  --bg-card:       #1c2128;
+  --bg-surface:    #21262d;
+  --border:        #30363d;
+  --border-light:  #484f58;
+  --text-primary:  #e6edf3;
+  --text-secondary:#8b949e;
+  --text-muted:    #656d76;
+  --accent-red:    #e74c3c;
+  --accent-orange: #e67e22;
+  --accent-yellow: #f39c12;
+  --accent-green:  #27ae60;
+  --accent-blue:   #3498db;
+  --accent-purple: #9b59b6;
+  --accent-teal:   #1abc9c;
+  --accent-pink:   #e91e63;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg:     0 8px 24px rgba(0,0,0,0.5);
+  --radius:        8px;
+  --radius-lg:     12px;
+  --transition:    0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* -- Global Reset ---------------------------------------------------------- */
+body, .wrapper, .content-wrapper, .main-sidebar, .left-side,
+.main-header, .main-header .navbar, .main-header .logo {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* -- Header ---------------------------------------------------------------- */
+.main-header {
+  border-bottom: 2px solid var(--accent-red) !important;
+  box-shadow: var(--shadow-md) !important;
+  max-height: 56px !important;
+}
+
+.main-header .logo {
+  background: linear-gradient(90deg, var(--bg-primary), #1a1a2e) !important;
+  font-weight: 700 !important;
+  font-size: 1.1rem !important;
+  letter-spacing: 0.03em !important;
+  padding: 0 15px !important;
+  height: 56px !important;
+  line-height: 56px !important;
+}
+
+.main-header .logo b {
+  color: var(--accent-red) !important;
+}
+
+.main-header .navbar {
+  background: linear-gradient(90deg, var(--bg-primary), #1a1a2e) !important;
+  min-height: 56px !important;
+}
+
+.main-header .sidebar-toggle {
+  color: var(--text-secondary) !important;
+}
+.main-header .sidebar-toggle:hover {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+/* -- Sidebar --------------------------------------------------------------- */
+.main-sidebar, .left-side {
+  background-color: var(--bg-primary) !important;
+  border-right: 1px solid var(--border) !important;
+  padding-top: 56px !important;
+}
+
+.main-sidebar .sidebar {
+  overflow-y: auto;
+  height: calc(100vh - 56px);
+}
+
+.sidebar-menu > li > a {
+  color: var(--text-secondary) !important;
+  border-left: 3px solid transparent !important;
+  padding: 12px 16px !important;
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  transition: var(--transition) !important;
+}
+
+.sidebar-menu > li > a:hover {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-left-color: var(--accent-red) !important;
+}
+
+.sidebar-menu > li.active > a {
+  background-color: rgba(231, 76, 60, 0.1) !important;
+  color: var(--accent-red) !important;
+  border-left-color: var(--accent-red) !important;
+  font-weight: 600 !important;
+}
+
+.sidebar-menu > li > a > .fa,
+.sidebar-menu > li > a > .glyphicon,
+.sidebar-menu > li > a > .ion {
+  min-width: 22px;
+}
+
+/* Sidebar section headers */
+.sidebar .sidebar-header {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 16px 16px 6px;
+  margin-top: 4px;
+}
+
+/* Sidebar filter controls */
+.sidebar .form-group {
+  margin-bottom: 10px;
+  padding: 0 12px;
+}
+
+/* Reset button — match sidebar .form-group content width (12px padding each side) */
+.sidebar #reset_filters {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 12px;
+  height: 42px;
+}
+
+.sidebar label.control-label {
+  font-size: 0.7rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: var(--text-muted) !important;
+  margin-bottom: 4px !important;
+}
+
+/* Slider inputs */
+.irs--shiny .irs-bar {
+  background: var(--accent-red) !important;
+  border-color: var(--accent-red) !important;
+}
+.irs--shiny .irs-handle {
+  background: var(--accent-red) !important;
+  border-color: var(--accent-red) !important;
+  box-shadow: 0 0 6px rgba(231,76,60,0.4) !important;
+}
+.irs--shiny .irs-line {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+.irs--shiny .irs-min, .irs--shiny .irs-max {
+  color: var(--text-muted) !important;
+  background: var(--bg-surface) !important;
+}
+.irs--shiny .irs-from, .irs--shiny .irs-to, .irs--shiny .irs-single {
+  background: var(--accent-red) !important;
+  color: white !important;
+  font-size: 0.72rem !important;
+}
+.irs--shiny .irs-grid-text {
+  color: var(--text-muted) !important;
+}
+
+/* Bootstrap-select / pickerInput */
+.bootstrap-select .btn {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  font-size: 0.82rem !important;
+  border-radius: var(--radius) !important;
+}
+.bootstrap-select .btn:hover,
+.bootstrap-select .btn:focus {
+  border-color: var(--accent-red) !important;
+  box-shadow: 0 0 0 2px rgba(231,76,60,0.15) !important;
+}
+.bootstrap-select .dropdown-menu {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.bootstrap-select .dropdown-menu li a {
+  color: var(--text-primary) !important;
+  font-size: 0.82rem !important;
+}
+.bootstrap-select .dropdown-menu li a:hover,
+.bootstrap-select .dropdown-menu li.active a,
+.bootstrap-select .dropdown-menu li.selected a {
+  background-color: rgba(231,76,60,0.15) !important;
+  color: var(--accent-red) !important;
+}
+.bootstrap-select .bs-searchbox input {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+.bs-actionsbox .btn-group .btn {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+/* -- Content Area ---------------------------------------------------------- */
+.content-wrapper, .right-side {
+  background-color: var(--bg-secondary) !important;
+}
+
+.content {
+  padding: 12px 16px !important;
+}
+
+section.content {
+  padding-top: 8px !important;
+}
+
+.tab-content {
+  background: transparent !important;
+}
+
+.tab-content > .tab-pane {
+  animation: fadeSlideIn 0.4s ease-out;
+}
+
+/* -- Tab Navigation (shinydashboard) --------------------------------------- */
+.nav-tabs-custom {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.nav-tabs-custom > .nav-tabs {
+  background: var(--bg-primary) !important;
+  border-bottom: 2px solid var(--border) !important;
+  margin-bottom: 12px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 0 8px;
+}
+
+.nav-tabs-custom > .nav-tabs > li > a {
+  color: var(--text-secondary) !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border: none !important;
+  padding: 12px 18px !important;
+  transition: var(--transition) !important;
+  background: transparent !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li > a:hover {
+  color: var(--text-primary) !important;
+  background: rgba(231,76,60,0.08) !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li.active > a {
+  color: var(--accent-red) !important;
+  border-bottom: 3px solid var(--accent-red) !important;
+  background: transparent !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li.active {
+  border-top-color: transparent !important;
+}
+
+.nav-tabs-custom > .tab-content {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+/* -- Boxes ----------------------------------------------------------------- */
+.box {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-top: none !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: var(--transition) !important;
+  margin-bottom: 12px;
+}
+
+.box:hover {
+  box-shadow: var(--shadow-md) !important;
+}
+
+.box-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 10px 14px !important;
+}
+
+.box-header .box-title {
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--text-secondary) !important;
+}
+
+.box-body {
+  padding: 10px 14px !important;
+  background: transparent !important;
+}
+
+/* -- KPI Value Boxes ------------------------------------------------------- */
+.small-box {
+  border-radius: var(--radius-lg) !important;
+  border: none !important;
+  box-shadow: var(--shadow-md) !important;
+  transition: transform var(--transition), box-shadow var(--transition) !important;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 12px;
+  min-height: 95px;
+}
+
+.small-box:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.small-box .inner {
+  padding: 14px 16px !important;
+}
+
+.small-box .inner h3 {
+  font-size: 2.2rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 4px !important;
+}
+
+.small-box .inner p {
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  opacity: 0.85;
+}
+
+.small-box .icon > .fa,
+.small-box .icon > .ion {
+  font-size: 3rem !important;
+  opacity: 0.15;
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.small-box > .small-box-footer {
+  display: none !important;
+}
+
+/* KPI color variants */
+.bg-red    { background: linear-gradient(135deg, #c0392b, #e74c3c) !important; }
+.bg-orange { background: linear-gradient(135deg, #d35400, #e67e22) !important; }
+.bg-purple { background: linear-gradient(135deg, #7d3c98, #9b59b6) !important; }
+.bg-blue   { background: linear-gradient(135deg, #1a5276, #2980b9) !important; }
+.bg-yellow { background: linear-gradient(135deg, #b7950b, #f1c40f) !important; }
+.bg-green  { background: linear-gradient(135deg, #1e8449, #27ae60) !important; }
+.bg-teal   { background: linear-gradient(135deg, #148f77, #1abc9c) !important; }
+
+/* -- Buttons --------------------------------------------------------------- */
+.btn-primary, .action-button {
+  background: linear-gradient(135deg, #c0392b, #e74c3c) !important;
+  border: none !important;
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  letter-spacing: 0.05em !important;
+  border-radius: var(--radius) !important;
+  padding: 10px 20px !important;
+  transition: var(--transition) !important;
+  box-shadow: 0 2px 8px rgba(231,76,60,0.3) !important;
+}
+
+.btn-primary:hover, .action-button:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(231,76,60,0.45) !important;
+}
+
+.btn-primary:active, .action-button:active {
+  transform: translateY(0) !important;
+}
+
+/* -- DataTables ------------------------------------------------------------ */
+.dataTables_wrapper {
+  color: var(--text-primary) !important;
+}
+
+table.dataTable {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-collapse: collapse !important;
+}
+
+table.dataTable thead th,
+table.dataTable thead td {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 2px solid var(--border) !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  padding: 10px 12px !important;
+}
+
+table.dataTable tbody td {
+  border-bottom: 1px solid var(--border) !important;
+  padding: 8px 12px !important;
+  font-size: 0.82rem !important;
+}
+
+table.dataTable tbody tr {
+  background-color: var(--bg-card) !important;
+}
+
+table.dataTable tbody tr:hover {
+  background-color: var(--bg-surface) !important;
+}
+
+table.dataTable tbody tr.odd {
+  background-color: rgba(33, 38, 45, 0.5) !important;
+}
+
+.dataTables_info, .dataTables_length, .dataTables_filter {
+  color: var(--text-secondary) !important;
+  font-size: 0.78rem !important;
+}
+
+.dataTables_filter input {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius) !important;
+  padding: 4px 8px !important;
+}
+
+.dataTables_paginate .paginate_button {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+  border-radius: 4px !important;
+}
+.dataTables_paginate .paginate_button.current,
+.dataTables_paginate .paginate_button:hover {
+  background: var(--accent-red) !important;
+  color: white !important;
+  border-color: var(--accent-red) !important;
+}
+
+/* -- Leaflet Map ----------------------------------------------------------- */
+.leaflet-container {
+  background: var(--bg-primary) !important;
+  border-radius: var(--radius-lg);
+}
+
+/* -- Crash Count Badge ----------------------------------------------------- */
+#crash-count-badge {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  margin: 10px 12px 6px;
+  text-align: center;
+  transition: var(--transition);
+}
+
+#crash-count-badge .badge-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+#crash-count-badge .badge-value {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--accent-red);
+  line-height: 1.1;
+  transition: var(--transition);
+}
+
+#crash-count-badge.pulse .badge-value {
+  animation: badgePulse 0.5s ease-out;
+}
+
+/* -- Map Mode Toggle ------------------------------------------------------- */
+.map-mode-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-surface);
+  border-radius: var(--radius);
+  padding: 3px;
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.map-mode-toggle .btn-map-mode {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.map-mode-toggle .btn-map-mode.active,
+.map-mode-toggle .btn-map-mode:hover {
+  background: var(--accent-red);
+  color: white;
+}
+
+/* -- Section Divider ------------------------------------------------------- */
+.section-divider {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* -- Radio Buttons (shinyWidgets) ------------------------------------------ */
+.radiobtn .btn {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+  font-size: 0.78rem !important;
+}
+.radiobtn .btn.active,
+.radiobtn .btn:hover {
+  background-color: var(--accent-red) !important;
+  border-color: var(--accent-red) !important;
+  color: white !important;
+}
+
+/* -- Animations ------------------------------------------------------------ */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes badgePulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* -- Scrollbar ------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* -- Misc Overrides -------------------------------------------------------- */
+.form-control {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.well {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.shiny-notification {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* -- Sidebar user panel / custom bottom ------------------------------------ */
+.sidebar-section-sep {
+  border-top: 1px solid var(--border);
+  margin: 8px 12px 4px;
+}
+
+/* -- Plotly toolbar dark --------------------------------------------------- */
+.modebar-btn path {
+  fill: var(--text-muted) !important;
+}
+.modebar-btn:hover path {
+  fill: var(--text-primary) !important;
+}
+
+/* -- Route Risk Predictor (Tab 5) ----------------------------------------- */
+
+/* Selectize address autocomplete — dark theme */
+.selectize-input {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Text typed into the selectize box */
+.selectize-input input {
+  color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+}
+
+.selectize-dropdown {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+  z-index: 9999 !important;
+}
+
+.selectize-dropdown .option {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+.selectize-dropdown .option:hover,
+.selectize-dropdown .option.active {
+  background: rgba(231, 76, 60, 0.12) !important;
+  color: var(--accent-red) !important;
+}
+
+/* Model methodology note */
+.model-method-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 6px 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+/* Analyse Route button */
+#analyse_route_btn {
+  margin-top: 8px;
+  width: 100%;
+}
+
+/* Risk badge */
+.risk-badge {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: center;
+  margin: 12px 0;
+}
+
+.risk-low      { background: rgba(39,174,96,0.2);  border: 1px solid #27ae60; color: #27ae60; }
+.risk-moderate { background: rgba(243,156,18,0.2); border: 1px solid #f39c12; color: #f39c12; }
+.risk-high     { background: rgba(231,76,60,0.2);  border: 1px solid #e74c3c; color: #e74c3c; }
+
+/* Risk stats panel */
+.risk-stats-panel {
+  padding: 4px 0;
+}
+
+.risk-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+
+.risk-stat-row:last-child {
+  border-bottom: none;
+}
+
+.risk-stat-label {
+  color: var(--text-secondary);
+}
+
+.risk-stat-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Threat sections */
+.threat-section {
+  margin-bottom: 16px;
+}
+
+.threat-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.threat-title .fa {
+  margin-right: 4px;
+  color: var(--accent-red);
+}
+
+/* Advice card */
+.advice-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-yellow, #f39c12);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.advice-card .advice-icon {
+  color: var(--accent-yellow, #f39c12);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.advice-card p {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Model performance tabBox dark theme override */
+#model_tabs .nav-tabs > li > a {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+#model_tabs .nav-tabs > li.active > a {
+  color: var(--text-primary) !important;
+  background: var(--bg-card) !important;
+  border-bottom-color: var(--accent-red) !important;
+}

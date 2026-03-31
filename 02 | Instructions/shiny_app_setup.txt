@@ -1,0 +1,22 @@
+Notes to upload app to AWS instance and correct setup:
+
+Copy your app folder from your local machine to AWS machine. Using your local console:
+scp -i "your_PEM_file.pem" -r your_path_to_app ubuntu@Public IPv4 DNS:/home/ubuntu/
+
+Then copy to the final destination (/srv/shiny-server/). Using AWS machine console (as ubuntu user):
+sudo cp -r ~/app_folder /srv/shiny-server/
+
+Change permissions to read/edit/execute
+sudo chmod -R 777 /srv/shiny-server/app_folder/
+Change paths inside .R files for a correct execution using:
+vi your_app_file.R (look at vi manual to learn how to)
+
+Try to reach your app from an internet browser (Chrome, Firefox, Safari, etc)
+Public_IPv4_address:3838/app_folder/
+
+If everything is right, you will see your app.
+
+If something goes wrong, look at the log files at /var/log/shiny-server
+sudo cat /var/log/shiny-server/your_app_logfile.log
+
+Fix errors, and try to reach again.

@@ -1,0 +1,21 @@
+=== Model Comparison Results ===
+
+Target: ANY_INJURY (binary, ~27% positive class)
+Features: HOUR, DAY_OF_WEEK_NUM, MONTH_NUM, IS_WEEKEND, IS_RUSH_HOUR, TIME_PERIOD, BOROUGH, PRIMARY_VEHICLE, LATITUDE, LONGITUDE
+Training set: 38156 rows  |  Test set: 9538 rows
+
+--- 5-Fold Cross-Validation (Mean) ---
+Model          AUC      Sens      Spec
+-----       ------    ------    ------
+GLM         0.6253    0.9902    0.0861
+RPART       0.6122    0.9871    0.0903
+RF          0.6131    0.9921    0.0795
+GBM         0.6358    0.9894    0.0867
+
+--- Test Set AUC ---
+GLM       0.6218
+RPART     0.6096
+RF        0.6097
+GBM       0.6343
+
+Winner: GBM (Test AUC = 0.6343)
