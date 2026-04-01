@@ -2,7 +2,7 @@
 
 An interactive R Shiny dashboard analysing 74,881 traffic accidents across New York City's five boroughs in 2020. Built as a group project for the Data Analytics with R course at ESADE (MiBA, Term 2).
 
-**Live App:** [http://15.188.143.227:3838/nyc-dashboard/](http://15.188.143.227:3838/nyc-dashboard/)
+**Live App:** [http://15.188.143.227:3838/nyc-dashboard/]
 
 ---
 
@@ -50,7 +50,7 @@ Enter an origin and destination to analyse historical crash data along your rout
 
 ## Data Source
 
-NYC Motor Vehicle Collisions dataset (74,881 rows, 29 columns) covering all police-reported traffic accidents in New York City during 2020.
+NYC Motor Vehicle Collisions dataset (74,881 rows, 29 columns) covering all police-reported traffic accidents in New York City during 2020, from January until August.
 
 ## Predictive Model
 
@@ -75,4 +75,4 @@ A Gradient Boosting Machine (GBM) was trained to predict injury outcomes from pr
 
 ## Deployment
 
-Deployed on AWS EC2 (Ubuntu 24.04, t2.large) via Shiny Server on port 3838. See `02 | Instructions/` for AWS setup details.
+Deployed on AWS EC2 (Ubuntu 24.04, t2.large) via Shiny Server on port 3838.
