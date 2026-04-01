@@ -1,79 +1,100 @@
 # NYC Traffic Accidents 2020 Dashboard
 
-An interactive R Shiny dashboard analysing 74,881 traffic accidents across New York City's five boroughs in 2020. Built as a group project for the Data Analytics with R course at ESADE (MiBA, Term 2).
+A full-stack interactive dashboard built with R Shiny, analysing 74,881 traffic accidents across New York City's five boroughs. Features 25+ interactive visualisations, a custom dark theme design system, and a route risk analysis tool with spatial hotspot detection.
 
-**Live App:** [http://15.188.143.227:3838/nyc-dashboard/]
+**[Live Demo](http://15.188.143.227:3838/nyc-dashboard/)**
 
 ---
 
-## Tabs
+## Preview
 
-### 1. Overview
-Key metrics at a glance: total crashes, injuries, fatalities, and injury rate. Borough comparisons, victim type breakdowns, hourly crash distributions, severity patterns, and pedestrian/cyclist vulnerability analysis.
+### Welcome Screen
+The app opens with a splash overlay introducing the project scope and key statistics before users enter the dashboard.
 
-### 2. Interactive Map
-Leaflet heatmap and marker views of all geocoded crashes. Includes map controls for toggling between heatmap and individual markers, summary statistics, and a searchable table of the most dangerous streets.
+### Dashboard Features
 
-### 3. Time Analysis
-Temporal deep dive: hour-by-day-of-week heatmap, day-of-week patterns, victim type by time of day, monthly crash volume trends, and hour-by-borough heatmaps.
+| Tab | Description |
+|-----|-------------|
+| **Overview** | KPI cards, borough comparisons, victim breakdowns, hourly distributions, severity patterns |
+| **Interactive Map** | Leaflet heatmap/marker toggle with 68,000+ geocoded crash points and dangerous street rankings |
+| **Time Analysis** | Hour x day-of-week heatmap, day/month patterns, victim type by time, borough-level temporal trends |
+| **Causes & Vehicles** | Contributing factor rankings, severity profiles, category trends, vehicle type breakdowns |
+| **Route Risk** | Enter any NYC route to see density-coloured risk segments, automated danger zone detection, and corridor-specific analytics |
 
-### 4. Causes & Vehicles
-Contributing factor analysis: top factors ranked by frequency, factor severity profiles, category trends over time, vehicle type severity breakdowns, and factor composition by vehicle type.
+---
 
-### 5. Route Risk
-Enter an origin and destination to analyse historical crash data along your route. Features density-coloured route visualisation (yellow to red), automated danger zone detection with hotspot clustering, corridor KPIs, and breakdowns by day of week, hour, vehicle type, and contributing factors.
+## Key Technical Highlights
+
+### Design System
+Custom CSS with centralised design tokens for typography (5-level scale) and spacing (4-level scale), ensuring visual consistency across all pages. Dark theme inspired by GitHub's colour palette.
+
+### Route Risk Analysis
+- **OpenRouteService** geocoding with live address autocomplete
+- Route polyline coloured yellow-to-red by historical crash density
+- **Hotspot detection**: peak-finding algorithm samples points along the route, counts crashes within 100m radius, and identifies the top 3 danger zones with 200m minimum separation
+- Per-zone statistics: crash count, injury rate, top contributing factor
+- Clickable zone cards that fly the map to each hotspot
+
+### Predictive Modelling
+Four classification algorithms (GLM, Decision Tree, Random Forest, GBM) were compared via 5-fold cross-validation to predict injury outcomes. After evaluation (best AUC = 0.635), we made the deliberate decision to replace weak predictions with spatial density analysis that provides more actionable user value. Full methodology documented in [`MODEL_DOCUMENTATION.md`](MODEL_DOCUMENTATION.md).
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| **Frontend** | shinydashboard, shinyWidgets, shinyjs, custom CSS/JS |
+| **Visualisation** | Plotly (21 charts), Leaflet (2 maps), DT (interactive tables) |
+| **Spatial** | sf, OpenRouteService API (geocoding + routing) |
+| **Modelling** | caret, GBM, pROC |
+| **Data** | dplyr, tidyr, lubridate, forcats |
+| **Deployment** | AWS EC2 (Ubuntu 24.04), Shiny Server |
 
 ---
 
 ## Project Structure
 
 ```
-05 | RShiny-NYC-Dashboard/
-├── app.R                    # Entry point: sources global.R, ui.R, server.R
-├── global.R                 # Packages, data loading, shared constants
-├── ui.R                     # shinydashboard UI (sidebar + 5 tabs)
-├── server.R                 # Reactive logic, charts, route risk analysis
-├── data_processing.R        # Offline: CSV -> DATA/processed_data.RData
-├── model_comparison.R       # Offline: 4-algorithm comparison (GLM, RPART, RF, GBM)
-├── model_training.R         # Offline: final GBM model training + evaluation
-├── MODEL_DOCUMENTATION.md   # Model process, results, and design decision
+├── app.R                    # Entry point
+├── global.R                 # Packages, constants, shared data
+├── ui.R                     # Dashboard layout (sidebar + 5 tabs)
+├── server.R                 # Reactive logic, 25+ outputs
+├── data_processing.R        # Raw CSV -> processed RData (run once)
+├── model_comparison.R       # 4-algorithm comparison pipeline
+├── model_training.R         # Final GBM training + evaluation
+├── MODEL_DOCUMENTATION.md   # Modelling methodology and rationale
 ├── DATA/
-│   ├── NYC_Accidents_2020.csv         # Source data (74,881 rows)
-│   ├── processed_data.RData           # Preprocessed data + model artifacts
-│   ├── model_comparison_results.txt
-│   └── model_comparison_dotplot.png
+│   ├── NYC_Accidents_2020.csv
+│   └── processed_data.RData
 ├── SETUP/
-│   └── requirements.R       # Package installation script for deployment
+│   └── requirements.R
 └── www/
-    ├── custom.css            # Dark theme + design system
-    └── custom.js             # Tab animations, crash count badge
+    ├── custom.css            # Design system (980 lines)
+    └── custom.js             # Animations + interactivity
 ```
 
-## Data Source
+## Getting Started
 
-NYC Motor Vehicle Collisions dataset (74,881 rows, 29 columns) covering all police-reported traffic accidents in New York City during 2020, from January until August.
+```bash
+# Install dependencies
+Rscript SETUP/requirements.R
 
-## Predictive Model
+# (Optional) Set ORS API key for Route Risk autocomplete
+echo 'ORS_API_KEY=your_key' >> ~/.Renviron
 
-A Gradient Boosting Machine (GBM) was trained to predict injury outcomes from pre-crash features (time, location, vehicle type). After rigorous evaluation (AUC = 0.635 across 4 algorithms), we concluded that spatial density analysis provides more actionable value to users than weak predictive scores. The full rationale is documented in `MODEL_DOCUMENTATION.md`. Model scripts are included for reproducibility.
+# Launch
+Rscript -e 'shiny::runApp(".")'
+```
 
-## Tech Stack
+The app runs fully without the ORS key — only the Route Risk address autocomplete requires it.
 
-- **R Shiny** with shinydashboard, shinyWidgets, shinyjs
-- **Plotly** for interactive charts
-- **Leaflet** for map visualisations
-- **sf** for spatial operations (route buffering, hotspot detection)
-- **OpenRouteService** for geocoding and routing
-- **caret + GBM** for predictive modelling
-- Custom CSS dark theme with design tokens (typography and spacing scales)
+---
 
-## How to Run Locally
+## Data
 
-1. Install R (>= 4.3) and all packages: `Rscript SETUP/requirements.R`
-2. Set the ORS API key: add `ORS_API_KEY=your_key` to `~/.Renviron`
-3. Ensure `DATA/processed_data.RData` exists (or run `source("data_processing.R")` — the source CSV is included at `DATA/NYC_Accidents_2020.csv`)
-4. Run: `shiny::runApp(".")`
+NYC Motor Vehicle Collisions dataset: 74,881 police-reported accidents from January to August 2020, covering all five boroughs. Features include crash location (lat/lon), date/time, contributing factors, vehicle types, and injury/fatality counts.
 
-## Deployment
+---
 
-Deployed on AWS EC2 (Ubuntu 24.04, t2.large) via Shiny Server on port 3838.
+Built with R 4.3 | Deployed on AWS EC2 | Dark theme with Inter typeface
