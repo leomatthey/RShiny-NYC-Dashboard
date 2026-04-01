@@ -805,83 +805,10 @@ table.dataTable tbody tr.odd {
   color: var(--accent-red) !important;
 }
 
-/* Model methodology note */
-.model-method-note {
-  font-size: var(--font-caption);
-  color: var(--text-muted);
-  padding: 6px 0 10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 6px;
-  line-height: 1.4;
-}
-
 /* Analyse Route button */
 #analyse_route_btn {
   margin-top: 8px;
   width: 100%;
-}
-
-/* Risk badge */
-.risk-badge {
-  display: inline-block;
-  padding: 8px 20px;
-  border-radius: var(--radius);
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-align: center;
-  margin: 12px 0;
-}
-
-.risk-low      { background: rgba(39,174,96,0.2);  border: 1px solid #27ae60; color: #27ae60; }
-.risk-moderate { background: rgba(243,156,18,0.2); border: 1px solid #f39c12; color: #f39c12; }
-.risk-high     { background: rgba(231,76,60,0.2);  border: 1px solid #e74c3c; color: #e74c3c; }
-
-/* Risk stats panel */
-.risk-stats-panel {
-  padding: 4px 0;
-}
-
-.risk-stat-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.82rem;
-}
-
-.risk-stat-row:last-child {
-  border-bottom: none;
-}
-
-.risk-stat-label {
-  color: var(--text-secondary);
-}
-
-.risk-stat-value {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* Threat sections */
-.threat-section {
-  margin-bottom: 16px;
-}
-
-.threat-title {
-  font-size: var(--font-caption);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
-}
-
-.threat-title .fa {
-  margin-right: 4px;
-  color: var(--accent-red);
 }
 
 /* Advice card */

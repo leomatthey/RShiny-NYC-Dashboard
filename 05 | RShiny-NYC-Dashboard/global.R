@@ -39,14 +39,6 @@ SEVERITY_COLORS <- c(
   "Fatal"                = "#e74c3c"
 )
 
-BOROUGH_COLORS <- c(
-  "Manhattan"     = "#3498db",
-  "Brooklyn"      = "#e74c3c",
-  "Queens"        = "#27ae60",
-  "Bronx"         = "#f39c12",
-  "Staten Island" = "#9b59b6"
-)
-
 FACTOR_COLORS <- c(
   "Distraction"            = "#e74c3c",
   "Speed"                  = "#e67e22",
