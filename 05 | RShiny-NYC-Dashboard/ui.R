@@ -96,6 +96,67 @@ ui <- dashboardPage(
     useShinyjs(),
     tags$script(src = "custom.js"),
 
+    # Welcome splash overlay
+    tags$div(id = "splash-overlay", class = "splash-overlay",
+      tags$div(class = "splash-card",
+        tags$div(class = "splash-header",
+          tags$div(class = "splash-badge", "NYC"),
+          tags$h1(class = "splash-title", "Traffic Accidents 2020"),
+          tags$p(class = "splash-subtitle", "Interactive Data Analytics Dashboard")
+        ),
+        tags$div(class = "splash-divider"),
+        tags$div(class = "splash-body",
+          tags$div(class = "splash-stats",
+            tags$div(class = "splash-stat",
+              tags$div(class = "splash-stat-value", "74,881"),
+              tags$div(class = "splash-stat-label", "Crashes Analysed")
+            ),
+            tags$div(class = "splash-stat",
+              tags$div(class = "splash-stat-value", "5"),
+              tags$div(class = "splash-stat-label", "Boroughs Covered")
+            ),
+            tags$div(class = "splash-stat",
+              tags$div(class = "splash-stat-value", "5"),
+              tags$div(class = "splash-stat-label", "Interactive Dashboards")
+            )
+          ),
+          tags$p(class = "splash-description",
+            "Explore New York City's traffic accident landscape through interactive visualisations.",
+            "Dive into borough comparisons, temporal patterns, contributing factors, and plan safer",
+            "routes with our spatial risk analysis tool."
+          ),
+          tags$div(class = "splash-features",
+            tags$div(class = "splash-feature",
+              tags$span(class = "splash-feature-icon", icon("chart-bar")),
+              tags$span("City-wide overview with key metrics and borough breakdowns")
+            ),
+            tags$div(class = "splash-feature",
+              tags$span(class = "splash-feature-icon", icon("map-marked-alt")),
+              tags$span("Interactive heatmap with street-level crash data")
+            ),
+            tags$div(class = "splash-feature",
+              tags$span(class = "splash-feature-icon", icon("clock")),
+              tags$span("Temporal analysis revealing when and where crashes peak")
+            ),
+            tags$div(class = "splash-feature",
+              tags$span(class = "splash-feature-icon", icon("exclamation-triangle")),
+              tags$span("Deep dive into crash causes and vehicle type patterns")
+            ),
+            tags$div(class = "splash-feature",
+              tags$span(class = "splash-feature-icon", icon("route")),
+              tags$span("Route risk analysis with danger zone detection")
+            )
+          )
+        ),
+        tags$div(class = "splash-footer",
+          actionButton("dismiss_splash", "Explore the Dashboard",
+                       class = "splash-btn", icon = icon("arrow-right")),
+          tags$p(class = "splash-credit",
+            "Data Analytics with R \u2014 ESADE MiBA \u2014 Term 2, 2025")
+        )
+      )
+    ),
+
     tabItems(
 
       # ── Tab 1: Overview ──────────────────────────────────────────────────
@@ -205,7 +266,7 @@ ui <- dashboardPage(
                 plotlyOutput("time_monthly", height = "280px"))
           ),
           column(width = 6,
-            tags$h3(class = "section-header", "Which Boroughs Are Busiest by Hour?"),
+            tags$h3(class = "section-header", "How Do Crashes Vary by Borough and Hour?"),
             box(title = "Hour x Borough Heatmap", width = NULL, solidHeader = FALSE,
                 plotlyOutput("time_borough_heatmap", height = "280px"))
           )
@@ -222,20 +283,30 @@ ui <- dashboardPage(
               plotlyOutput("causes_top_factors", height = "340px"))
         ),
 
-        tags$h3(class = "section-header", "How Do Factors Relate to Severity?"),
         fluidRow(
-          box(title = "Factor Severity Profile", width = 6, solidHeader = FALSE,
-              plotlyOutput("causes_factor_severity", height = "300px")),
-          box(title = "Factor Category Trends", width = 6, solidHeader = FALSE,
-              plotlyOutput("causes_factor_time", height = "300px"))
+          column(width = 6,
+            tags$h3(class = "section-header", "How Severe Are Different Factors?"),
+            box(title = "Factor Severity Profile", width = NULL, solidHeader = FALSE,
+                plotlyOutput("causes_factor_severity", height = "300px"))
+          ),
+          column(width = 6,
+            tags$h3(class = "section-header", "How Do Factor Categories Trend Over Time?"),
+            box(title = "Factor Category Trends", width = NULL, solidHeader = FALSE,
+                plotlyOutput("causes_factor_time", height = "300px"))
+          )
         ),
 
-        tags$h3(class = "section-header", "How Do Vehicle Types Compare?"),
         fluidRow(
-          box(title = "Vehicle Type x Severity", width = 6, solidHeader = FALSE,
-              plotlyOutput("causes_vehicle_severity", height = "300px")),
-          box(title = "Factor Composition by Vehicle", width = 6, solidHeader = FALSE,
-              plotlyOutput("causes_factor_vehicle", height = "300px"))
+          column(width = 6,
+            tags$h3(class = "section-header", "How Severe Are Crashes by Vehicle Type?"),
+            box(title = "Vehicle Type x Severity", width = NULL, solidHeader = FALSE,
+                plotlyOutput("causes_vehicle_severity", height = "300px"))
+          ),
+          column(width = 6,
+            tags$h3(class = "section-header", "What Causes Crashes for Each Vehicle?"),
+            box(title = "Factor Composition by Vehicle", width = NULL, solidHeader = FALSE,
+                plotlyOutput("causes_factor_vehicle", height = "300px"))
+          )
         )
       ),
 

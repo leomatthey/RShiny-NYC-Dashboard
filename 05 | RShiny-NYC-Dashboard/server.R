@@ -3,6 +3,17 @@
 
 server <- function(input, output, session) {
 
+  # Splash Screen ====
+
+  ## Dismiss splash overlay with fade-out ----
+  observeEvent(input$dismiss_splash, {
+    shinyjs::runjs("
+      var el = document.getElementById('splash-overlay');
+      el.style.opacity = '0';
+      setTimeout(function() { el.style.display = 'none'; }, 500);
+    ")
+  })
+
   # Helpers ====
 
   ## Apply dark Plotly layout to a figure ----
