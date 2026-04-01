@@ -38,7 +38,8 @@ Enter an origin and destination to analyse historical crash data along your rout
 ├── model_training.R         # Offline: final GBM model training + evaluation
 ├── MODEL_DOCUMENTATION.md   # Model process, results, and design decision
 ├── DATA/
-│   ├── processed_data.RData # Preprocessed data + model artifacts
+│   ├── NYC_Accidents_2020.csv         # Source data (74,881 rows)
+│   ├── processed_data.RData           # Preprocessed data + model artifacts
 │   ├── model_comparison_results.txt
 │   └── model_comparison_dotplot.png
 ├── SETUP/
@@ -70,7 +71,7 @@ A Gradient Boosting Machine (GBM) was trained to predict injury outcomes from pr
 
 1. Install R (>= 4.3) and all packages: `Rscript SETUP/requirements.R`
 2. Set the ORS API key: add `ORS_API_KEY=your_key` to `~/.Renviron`
-3. Ensure `DATA/processed_data.RData` exists (or run `source("data_processing.R")` with the source CSV at `../03 | DATA/NYC Accidents 2020.csv`)
+3. Ensure `DATA/processed_data.RData` exists (or run `source("data_processing.R")` — the source CSV is included at `DATA/NYC_Accidents_2020.csv`)
 4. Run: `shiny::runApp(".")`
 
 ## Deployment

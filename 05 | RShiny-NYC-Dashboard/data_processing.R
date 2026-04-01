@@ -20,7 +20,7 @@ suppressPackageStartupMessages({
   library(forcats)
 })
 
-DATA_IN  <- "../03 | DATA/NYC Accidents 2020.csv"
+DATA_IN  <- "DATA/NYC_Accidents_2020.csv"
 DATA_OUT <- "DATA/processed_data.RData"
 
 if (!file.exists(DATA_IN))
