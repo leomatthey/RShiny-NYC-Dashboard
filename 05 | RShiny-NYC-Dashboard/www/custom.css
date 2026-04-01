@@ -27,6 +27,19 @@
   --radius:        8px;
   --radius-lg:     12px;
   --transition:    0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Typography scale */
+  --font-page-title: 3rem;
+  --font-section:    1.6rem;
+  --font-card-title: 1.15rem;
+  --font-body:       1rem;
+  --font-caption:    0.85rem;
+
+  /* Spacing scale */
+  --space-section:        36px;
+  --space-header-line:    8px;
+  --space-header-content: 18px;
+  --space-row:            15px;
 }
 
 /* -- Global Reset ---------------------------------------------------------- */
@@ -86,7 +99,7 @@ body, .wrapper, .content-wrapper, .main-sidebar, .left-side,
   color: var(--text-secondary) !important;
   border-left: 3px solid transparent !important;
   padding: 12px 16px !important;
-  font-size: 0.82rem !important;
+  font-size: var(--font-body) !important;
   font-weight: 500 !important;
   letter-spacing: 0.02em !important;
   transition: var(--transition) !important;
@@ -113,7 +126,7 @@ body, .wrapper, .content-wrapper, .main-sidebar, .left-side,
 
 /* Sidebar section headers */
 .sidebar .sidebar-header {
-  font-size: 0.65rem;
+  font-size: var(--font-caption);
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -137,7 +150,7 @@ body, .wrapper, .content-wrapper, .main-sidebar, .left-side,
 }
 
 .sidebar label.control-label {
-  font-size: 0.7rem !important;
+  font-size: var(--font-caption) !important;
   font-weight: 600 !important;
   letter-spacing: 0.1em !important;
   text-transform: uppercase !important;
@@ -166,7 +179,7 @@ body, .wrapper, .content-wrapper, .main-sidebar, .left-side,
 .irs--shiny .irs-from, .irs--shiny .irs-to, .irs--shiny .irs-single {
   background: var(--accent-red) !important;
   color: white !important;
-  font-size: 0.72rem !important;
+  font-size: var(--font-caption) !important;
 }
 .irs--shiny .irs-grid-text {
   color: var(--text-muted) !important;
@@ -177,7 +190,7 @@ body, .wrapper, .content-wrapper, .main-sidebar, .left-side,
   background-color: var(--bg-surface) !important;
   border: 1px solid var(--border) !important;
   color: var(--text-primary) !important;
-  font-size: 0.82rem !important;
+  font-size: var(--font-body) !important;
   border-radius: var(--radius) !important;
 }
 .bootstrap-select .btn:hover,
@@ -193,7 +206,7 @@ body, .wrapper, .content-wrapper, .main-sidebar, .left-side,
 }
 .bootstrap-select .dropdown-menu li a {
   color: var(--text-primary) !important;
-  font-size: 0.82rem !important;
+  font-size: var(--font-body) !important;
 }
 .bootstrap-select .dropdown-menu li a:hover,
 .bootstrap-select .dropdown-menu li.active a,
@@ -249,7 +262,7 @@ section.content {
 
 .nav-tabs-custom > .nav-tabs > li > a {
   color: var(--text-secondary) !important;
-  font-size: 0.78rem !important;
+  font-size: var(--font-caption) !important;
   font-weight: 600 !important;
   letter-spacing: 0.06em !important;
   text-transform: uppercase !important;
@@ -301,7 +314,7 @@ section.content {
 }
 
 .box-header .box-title {
-  font-size: 1.15rem !important;
+  font-size: var(--font-card-title) !important;
   font-weight: 700 !important;
   letter-spacing: 0.08em !important;
   text-transform: uppercase !important;
@@ -341,7 +354,7 @@ section.content {
 }
 
 .small-box .inner p {
-  font-size: 0.85rem !important;
+  font-size: var(--font-caption) !important;
   font-weight: 500 !important;
   opacity: 0.85;
 }
@@ -408,7 +421,7 @@ table.dataTable thead td {
   background-color: var(--bg-surface) !important;
   color: var(--text-secondary) !important;
   border-bottom: 2px solid var(--border) !important;
-  font-size: 0.72rem !important;
+  font-size: var(--font-caption) !important;
   font-weight: 700 !important;
   letter-spacing: 0.08em !important;
   text-transform: uppercase !important;
@@ -418,7 +431,7 @@ table.dataTable thead td {
 table.dataTable tbody td {
   border-bottom: 1px solid var(--border) !important;
   padding: 8px 12px !important;
-  font-size: 0.82rem !important;
+  font-size: var(--font-body) !important;
 }
 
 table.dataTable tbody tr {
@@ -435,7 +448,7 @@ table.dataTable tbody tr.odd {
 
 .dataTables_info, .dataTables_length, .dataTables_filter {
   color: var(--text-secondary) !important;
-  font-size: 0.78rem !important;
+  font-size: var(--font-caption) !important;
 }
 
 .dataTables_filter input {
@@ -477,7 +490,7 @@ table.dataTable tbody tr.odd {
 }
 
 #crash-count-badge .badge-label {
-  font-size: 0.62rem;
+  font-size: var(--font-caption);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -513,7 +526,7 @@ table.dataTable tbody tr.odd {
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--font-caption);
   font-weight: 600;
   padding: 6px 12px;
   border-radius: 6px;
@@ -532,7 +545,7 @@ table.dataTable tbody tr.odd {
   border-bottom: 1px solid var(--border);
   padding-bottom: 6px;
   margin-bottom: 12px;
-  font-size: 0.68rem;
+  font-size: var(--font-caption);
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -544,7 +557,7 @@ table.dataTable tbody tr.odd {
   background-color: var(--bg-surface) !important;
   border-color: var(--border) !important;
   color: var(--text-secondary) !important;
-  font-size: 0.78rem !important;
+  font-size: var(--font-caption) !important;
 }
 .radiobtn .btn.active,
 .radiobtn .btn:hover {
@@ -655,7 +668,7 @@ table.dataTable tbody tr.odd {
 
 /* Model methodology note */
 .model-method-note {
-  font-size: 0.75rem;
+  font-size: var(--font-caption);
   color: var(--text-muted);
   padding: 6px 0 10px;
   border-bottom: 1px solid var(--border);
@@ -717,7 +730,7 @@ table.dataTable tbody tr.odd {
 }
 
 .threat-title {
-  font-size: 0.78rem;
+  font-size: var(--font-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -757,6 +770,146 @@ table.dataTable tbody tr.odd {
   font-size: 0.82rem;
   margin: 0;
   line-height: 1.5;
+}
+
+/* -- Section Headers (app-wide) -------------------------------------------- */
+.section-header {
+  color: var(--text-primary);
+  font-size: var(--font-section);
+  font-weight: 700;
+  margin-top: var(--space-section);
+  margin-bottom: var(--space-header-content);
+  padding-bottom: var(--space-header-line);
+  border-bottom: 1px solid var(--border);
+}
+.page-title + .section-header {
+  margin-top: 16px;
+}
+
+/* Page title for tabs that use a custom header block */
+.page-title {
+  color: var(--text-primary);
+  font-size: var(--font-page-title);
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+/* -- Route Info Box --------------------------------------------------------- */
+.route-info-box h4 {
+  color: var(--text-primary);
+  font-size: var(--font-page-title);
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.route-info-box p {
+  color: var(--text-secondary);
+  font-size: var(--font-card-title);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* -- Route Config Layout --------------------------------------------------- */
+.route-analyse-btn {
+  width: 100%;
+  margin-top: 24px;
+}
+
+/* -- Route KPI Boxes ------------------------------------------------------- */
+.route-kpi-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  text-align: center;
+  min-height: 95px;
+}
+.kpi-value {
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+.kpi-label {
+  font-size: var(--font-card-title);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+.kpi-subtext {
+  font-size: var(--font-body);
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* -- Danger Zone Cards ----------------------------------------------------- */
+.danger-zone-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  transition: background 0.15s;
+}
+.danger-zone-card:hover {
+  background: var(--bg-hover, #21262d);
+}
+.zone-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.zone-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: white;
+  font-size: var(--font-caption);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.zone-street {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: var(--font-card-title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.zone-stats {
+  display: flex;
+  gap: 18px;
+  font-size: var(--font-body);
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.zone-stat b {
+  color: var(--text-primary);
+  font-size: var(--font-body);
+}
+.zone-fatal b {
+  color: var(--accent-red, #e74c3c);
+}
+.zone-factor {
+  font-size: var(--font-body);
+  color: var(--text-muted);
+}
+.low-data-banner {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  color: var(--text-muted);
+  font-size: var(--font-body);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 /* Model performance tabBox dark theme override */

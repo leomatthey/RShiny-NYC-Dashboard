@@ -83,6 +83,15 @@ server <- function(input, output, session) {
     session$sendCustomMessage("update_crash_count", n)
   })
 
+  ## Hide sidebar filters on Route Risk tab ----
+  observeEvent(input$tabs, {
+    if (input$tabs == "predictor") {
+      shinyjs::hide("sidebar-filters")
+    } else {
+      shinyjs::show("sidebar-filters")
+    }
+  })
+
   ## Reset filters ----
   observeEvent(input$reset_filters, {
     updateSliderInput(session, "hour_range", value = c(0, 23))
@@ -384,7 +393,7 @@ server <- function(input, output, session) {
     n_fat <- sum(d$PERSONS_KILLED, na.rm = TRUE)
 
     tags$div(
-      style = "font-size: 0.82rem; color: #e6edf3;",
+      style = "font-size: 1rem; color: #e6edf3;",
       tags$div(style = "margin-bottom:8px;",
         tags$span(style = "color:#8b949e;", "Points: "),
         tags$b(format(n_map, big.mark = ","))
@@ -948,10 +957,10 @@ server <- function(input, output, session) {
   # Tab 5: Route Risk Predictor ====
   # ══════════════════════════════════════════════════════════════════════════
 
-  ## Parse lat/lon from selectize geocode value ----
-  # Value format from autocomplete: "lat|lon|display_name"
-  # Falls back to tidygeocoder for plain text input
-  parse_address_value <- function(val) {
+  ## Parse lat/lon from selectize value ----
+  # Value format from ORS autocomplete: "lat|lon|display_name"
+  # Falls back to tidygeocoder if plain text entered without selecting from dropdown
+  parse_coord_value <- function(val) {
     if (grepl("^-?[0-9.]+\\|-?[0-9.]+\\|", val)) {
       parts <- strsplit(val, "\\|")[[1]]
       list(lat  = as.numeric(parts[1]),
@@ -978,491 +987,495 @@ server <- function(input, output, session) {
 
     withProgress(message = "Analysing route...", value = 0, {
 
-      # Step 1: Resolve coordinates (parse autocomplete value or geocode plain text)
+      # Step 1: Resolve coordinates from selectize values
       incProgress(0.1, detail = "Resolving addresses")
-      origin <- parse_address_value(trimws(input$route_origin))
-      dest   <- parse_address_value(trimws(input$route_dest))
-
+      origin <- parse_coord_value(trimws(input$route_origin))
+      dest   <- parse_coord_value(trimws(input$route_dest))
       validate(need(
         !is.na(origin$lat) & !is.na(dest$lat),
-        "Could not geocode one or both addresses. Try selecting from the dropdown suggestions."
+        "Could not resolve one or both addresses. Try selecting from the dropdown suggestions."
       ))
 
-      origin_coords <- c(origin$lon, origin$lat)
-      dest_coords   <- c(dest$lon,   dest$lat)
-
-      # Step 2: Route via OSRM (fallback to straight line)
-      incProgress(0.2, detail = "Computing route")
-      used_fallback <- FALSE
+      # Step 2: Route via ORS (driving profile for general routing)
+      incProgress(0.3, detail = "Computing route")
+      ors_profile <- "driving-car"
       route_sf <- tryCatch({
-        osrm::osrmRoute(
-          src      = c(lon = origin_coords[1], lat = origin_coords[2]),
-          dst      = c(lon = dest_coords[1],   lat = dest_coords[2]),
-          overview = "full"
+        openrouteservice::ors_directions(
+          coordinates = list(c(origin$lon, origin$lat), c(dest$lon, dest$lat)),
+          profile     = ors_profile,
+          output      = "sf"
         )
       }, error = function(e) {
-        used_fallback <<- TRUE
-        line <- st_sfc(
-          st_linestring(rbind(origin_coords, dest_coords)),
-          crs = CRS_WGS84
-        )
-        st_sf(geometry = line, duration = NA_real_, distance = NA_real_)
+        validate(need(FALSE, paste0(
+          "Route computation failed: ", conditionMessage(e),
+          ". Check that the ORS_API_KEY is set and addresses are within NYC."
+        )))
       })
 
-      if (used_fallback) {
-        showNotification("Route API unavailable — using straight-line approximation.",
-                         type = "warning", duration = 6)
-      }
+      # Cast to LINESTRING (ORS may return MULTILINESTRING for complex routes)
+      route_sf <- st_cast(route_sf, "LINESTRING")
 
-      # Step 3: Sample points along route
-      incProgress(0.3, detail = "Sampling route points")
-      route_proj    <- st_transform(route_sf, CRS_NYC)
-      route_length  <- as.numeric(st_length(route_proj))
+      # Step 3: Spatial join — accidents within ROUTE_BUFFER_RADIUS of route
+      incProgress(0.6, detail = "Finding nearby accidents")
+      route_proj      <- st_transform(route_sf, CRS_NYC)
+      route_length_km <- as.numeric(st_length(route_proj)) / 1000
+      validate(need(route_length_km > 0, "Origin and destination appear to be the same location."))
 
-      validate(need(route_length > 0,
-                    "Origin and destination appear to be the same location."))
-
-      n_samples       <- as.integer(max(10L, min(500L, round(route_length / ROUTE_SAMPLE_INTERVAL))))
-      sample_fractions <- seq(0, 1, length.out = n_samples)
-
-      sample_pts_proj <- st_line_sample(route_proj, sample = sample_fractions) %>%
-        st_cast("POINT")
-      sample_pts_wgs  <- st_transform(sample_pts_proj, CRS_WGS84)
-      coords_mat      <- st_coordinates(sample_pts_wgs)
-
-      # Step 4: Borough assignment (nearest-neighbor)
-      incProgress(0.4, detail = "Assigning boroughs")
-      sample_sf   <- st_as_sf(
-        data.frame(LONGITUDE = coords_mat[, 1], LATITUDE = coords_mat[, 2]),
-        coords = c("LONGITUDE", "LATITUDE"), crs = CRS_WGS84
-      )
-      nearest_idx <- st_nearest_feature(sample_sf, borough_ref_sf)
-      boroughs    <- borough_ref_sf$BOROUGH[nearest_idx]
-
-      # Step 5: Build prediction data frame
-      incProgress(0.5, detail = "Building feature matrix")
-      hour_val  <- as.integer(input$route_hour)
-      dow_val   <- as.integer(input$route_day)
-      month_val <- as.integer(input$route_month)
-      is_weekend <- dow_val %in% c(6L, 7L)
-      is_rush    <- (hour_val >= 7L & hour_val <= 9L) | (hour_val >= 16L & hour_val <= 18L)
-      time_period <- dplyr::case_when(
-        hour_val >= 6L  & hour_val < 12L ~ "Morning",
-        hour_val >= 12L & hour_val < 17L ~ "Afternoon",
-        hour_val >= 17L & hour_val < 21L ~ "Evening",
-        TRUE ~ "Night"
-      )
-
-      pred_df <- data.frame(
-        HOUR            = rep(hour_val, n_samples),
-        DAY_OF_WEEK_NUM = rep(dow_val, n_samples),
-        MONTH_NUM       = rep(month_val, n_samples),
-        IS_WEEKEND      = factor(rep(as.character(is_weekend), n_samples),
-                                 levels = c("FALSE", "TRUE")),
-        IS_RUSH_HOUR    = factor(rep(as.character(is_rush), n_samples),
-                                 levels = c("FALSE", "TRUE")),
-        TIME_PERIOD     = factor(rep(time_period, n_samples),
-                                 levels = TIME_PERIOD_LEVELS),
-        BOROUGH         = factor(as.character(boroughs),
-                                 levels = levels(borough_ref_sf$BOROUGH)),
-        PRIMARY_VEHICLE = factor(rep(input$route_vehicle, n_samples),
-                                 levels = VEHICLE_CHOICES),
-        LATITUDE        = coords_mat[, 2],
-        LONGITUDE       = coords_mat[, 1]
-      )
-
-      # Step 6: Model predictions
-      incProgress(0.6, detail = "Running GBM model")
-      model_probs <- predict(final_model, newdata = pred_df, type = "prob")[, "Yes"]
-
-      # Step 7: Historical density scoring
-      incProgress(0.7, detail = "Computing accident density")
-      sample_pts_buffered <- st_buffer(sample_pts_proj, ROUTE_BUFFER_RADIUS)
-      counts_per_segment  <- lengths(st_intersects(sample_pts_buffered, accident_sf))
-      density_scores      <- pmin(counts_per_segment / DENSITY_CAP, 1.0)
-
-      # Step 8: Combined risk
-      incProgress(0.8, detail = "Computing risk scores")
-      combined_scores <- WEIGHT_DENSITY * density_scores + WEIGHT_MODEL * model_probs
-      overall_risk    <- mean(combined_scores) * 100
-
-      # Step 9: Route threats
-      incProgress(0.9, detail = "Identifying threats")
-      route_buffered <- st_buffer(route_proj, ROUTE_BUFFER_RADIUS)
-      nearby_idx     <- st_intersects(route_buffered, accident_sf)[[1]]
-
+      route_buffer <- st_buffer(st_union(route_proj), ROUTE_BUFFER_RADIUS)
+      nearby_idx   <- st_intersects(route_buffer, accident_sf)[[1]]
       nearby_accidents <- df %>%
         filter(VALID_COORDS) %>%
         slice(nearby_idx)
-
-      top_causes <- nearby_accidents %>%
-        filter(FACTOR_CATEGORY != "Other / Unknown") %>%
-        count(FACTOR_CATEGORY, sort = TRUE) %>%
-        head(5)
-
-      hotspot_streets <- nearby_accidents %>%
-        filter(!is.na(ON_STREET_NAME), ON_STREET_NAME != "") %>%
-        count(ON_STREET_NAME, sort = TRUE) %>%
-        head(5)
-
-      n_nearby   <- nrow(nearby_accidents)
-      n_injuries <- sum(nearby_accidents$PERSONS_INJURED, na.rm = TRUE)
-      n_fatal    <- sum(nearby_accidents$PERSONS_KILLED,  na.rm = TRUE)
 
       incProgress(1.0, detail = "Done")
 
       list(
         route_sf         = route_sf,
-        coords           = coords_mat,
-        combined_scores  = combined_scores,
+        route_proj       = route_proj,
+        route_length_km  = route_length_km,
         nearby_accidents = nearby_accidents,
+        origin           = c(lat = origin$lat, lng = origin$lon),
+        dest             = c(lat = dest$lat,   lng = dest$lon),
         origin_name      = origin$name,
         dest_name        = dest$name,
-        model_probs     = model_probs,
-        density_scores  = density_scores,
-        overall_risk    = overall_risk,
-        origin          = c(lat = origin$lat, lng = origin$lon),
-        dest            = c(lat = dest$lat,   lng = dest$lon),
-        n_nearby        = n_nearby,
-        n_injuries      = n_injuries,
-        n_fatal         = n_fatal,
-        top_causes      = top_causes,
-        hotspot_streets = hotspot_streets,
-        route_duration  = route_sf$duration,
-        route_distance  = route_sf$distance
+        ors_profile      = ors_profile
       )
     })
   })
 
-  ## Show results panel on analysis ----
+  ## Show analysis panels ----
   observeEvent(route_analysis(), {
     shinyjs::show("route_results")
   })
 
-  ## Update route map with colored segments ----
+  ## Observer 1: Route geometry + density-colored segments ----
+  # Triggers on route_analysis() — re-routes only when Analyse Route is clicked
   observeEvent(route_analysis(), {
-    res <- route_analysis()
-
-    risk_pal <- colorNumeric(
-      palette = c("#27ae60", "#f39c12", "#e74c3c"),
-      domain  = c(0, 1)
-    )
-
-    coords <- res$coords
-    scores <- res$combined_scores
-
+    res   <- route_analysis()
     proxy <- leafletProxy("route_map") %>%
-      clearGroup("route_segments") %>%
+      clearGroup("route") %>%
       clearGroup("route_markers")
 
-    # Draw colored polyline segments
-    for (i in seq_len(nrow(coords) - 1)) {
-      seg       <- rbind(coords[i, ], coords[i + 1, ])
-      seg_score <- mean(scores[c(i, i + 1)])
-
-      proxy <- proxy %>%
-        addPolylines(
-          lng = seg[, 1], lat = seg[, 2],
-          color   = risk_pal(seg_score),
-          weight  = 5,
-          opacity = 0.9,
-          group   = "route_segments"
-        )
+    # Convert nearby accidents to CRS_NYC for spatial ops
+    nearby_sf <- if (nrow(res$nearby_accidents) > 0) {
+      st_as_sf(res$nearby_accidents,
+               coords = c("LONGITUDE", "LATITUDE"), crs = CRS_WGS84) %>%
+        st_transform(CRS_NYC)
+    } else {
+      st_sf(geometry = st_sfc(crs = CRS_NYC))
     }
 
-    # Origin / destination markers
+    # Sample points along route; count accidents within buffer at each point
+    n_pts  <- as.integer(max(10L, min(100L,
+      round(res$route_length_km * 1000 / ROUTE_SAMPLE_INTERVAL))))
+    fracs  <- seq(0, 1, length.out = n_pts)
+    pts    <- st_line_sample(res$route_proj, sample = fracs) %>% st_cast("POINT")
+    counts <- if (nrow(nearby_sf) > 0)
+                lengths(st_intersects(st_buffer(pts, ROUTE_BUFFER_RADIUS), nearby_sf))
+              else rep(0L, n_pts)
+
+    # Normalise 0–1 within route; colour yellow → orange → red
+    scores     <- counts / max(max(counts), 1L)
+    risk_pal   <- colorNumeric(c("#f1c40f", "#e67e22", "#e74c3c"), domain = c(0, 1))
+    coords_wgs <- st_coordinates(st_transform(pts, CRS_WGS84))
+
+    for (i in seq_len(n_pts - 1L)) {
+      proxy <- proxy %>% addPolylines(
+        lng     = coords_wgs[c(i, i + 1L), 1L],
+        lat     = coords_wgs[c(i, i + 1L), 2L],
+        color   = risk_pal(mean(scores[c(i, i + 1L)])),
+        weight  = 6,
+        opacity = 0.9,
+        group   = "route"
+      )
+    }
+
     proxy %>%
       addAwesomeMarkers(
         lng   = res$origin["lng"], lat = res$origin["lat"],
-        icon  = makeAwesomeIcon(icon = "play", markerColor = "green", library = "fa"),
-        group = "route_markers",
-        popup = paste0("<b>Origin</b><br>", res$origin_name)
+        icon  = awesomeIcons(icon = "play", library = "fa",
+                             markerColor = "green", iconColor = "white"),
+        popup = paste0("<b>Origin</b><br>", res$origin_name),
+        group = "route_markers"
       ) %>%
       addAwesomeMarkers(
         lng   = res$dest["lng"], lat = res$dest["lat"],
-        icon  = makeAwesomeIcon(icon = "flag-checkered", markerColor = "red", library = "fa"),
-        group = "route_markers",
-        popup = paste0("<b>Destination</b><br>", res$dest_name)
+        icon  = awesomeIcons(icon = "flag", library = "fa",
+                             markerColor = "red", iconColor = "white"),
+        popup = paste0("<b>Destination</b><br>", res$dest_name),
+        group = "route_markers"
       ) %>%
       fitBounds(
-        lng1 = min(coords[, 1]) - 0.005, lat1 = min(coords[, 2]) - 0.005,
-        lng2 = max(coords[, 1]) + 0.005, lat2 = max(coords[, 2]) + 0.005
+        lng1 = min(res$origin["lng"], res$dest["lng"]) - 0.005,
+        lat1 = min(res$origin["lat"], res$dest["lat"]) - 0.005,
+        lng2 = max(res$origin["lng"], res$dest["lng"]) + 0.005,
+        lat2 = max(res$origin["lat"], res$dest["lat"]) + 0.005
       )
-
-    # Add nearby historical crash circles (colored by severity)
-    nearby <- res$nearby_accidents
-    if (nrow(nearby) > 0) {
-      crash_colors <- SEVERITY_COLORS[as.character(nearby$SEVERITY_LABEL)]
-      crash_colors[is.na(crash_colors)] <- "#5d6d7e"
-
-      leafletProxy("route_map") %>%
-        addCircleMarkers(
-          lng         = nearby$LONGITUDE,
-          lat         = nearby$LATITUDE,
-          radius      = 4,
-          color       = crash_colors,
-          fillColor   = crash_colors,
-          fillOpacity = 0.55,
-          weight      = 0,
-          group       = "crash_markers",
-          popup       = paste0(
-            "<b>", nearby$SEVERITY_LABEL, "</b><br>",
-            nearby$FACTOR_CATEGORY
-          )
-        )
-    }
   })
 
-  ## Risk gauge ----
-  output$risk_gauge <- renderPlotly({
-    res      <- route_analysis()
-    risk_val <- round(res$overall_risk, 1)
-    bar_color <- if (risk_val < RISK_LOW_THRESHOLD) RISK_COLORS_MAP["LOW"]
-                 else if (risk_val < RISK_HIGH_THRESHOLD) RISK_COLORS_MAP["MODERATE"]
-                 else RISK_COLORS_MAP["HIGH"]
+  ## Observer 2: Crash dots (toggle-controlled, mode + time filtered) ----
+  # Redraws when filtered data or toggle changes
+  observe({
+    proxy <- leafletProxy("route_map") %>% clearGroup("crash_markers")
 
-    plot_ly(
-      type  = "indicator",
-      mode  = "gauge+number",
-      value = risk_val,
-      number = list(suffix = "%", font = list(size = 28, color = "#e6edf3")),
-      gauge  = list(
-        axis = list(range = list(0, 100),
-                    tickcolor = "#8b949e", tickfont = list(color = "#8b949e")),
-        bar       = list(color = bar_color),
-        bgcolor   = "#21262d",
-        bordercolor = "#30363d",
-        steps = list(
-          list(range = c(0, RISK_LOW_THRESHOLD),  color = "rgba(39,174,96,0.15)"),
-          list(range = c(RISK_LOW_THRESHOLD, RISK_HIGH_THRESHOLD), color = "rgba(243,156,18,0.15)"),
-          list(range = c(RISK_HIGH_THRESHOLD, 100), color = "rgba(231,76,60,0.15)")
-        )
-      )
-    ) %>%
-      layout(
-        paper_bgcolor = PLOTLY_LAYOUT$paper_bgcolor,
-        font   = PLOTLY_LAYOUT$font,
-        margin = list(l = 20, r = 20, t = 40, b = 0)
-      ) %>%
-      config(displayModeBar = FALSE)
+    # Only draw dots when toggle is on and route exists
+    req(isTRUE(input$show_crash_dots), route_analysis())
+    nearby <- route_analysis()$nearby_accidents
+    if (nrow(nearby) == 0) return()
+
+    crash_colors <- unname(CRASH_MAP_COLORS[as.character(nearby$SEVERITY_LABEL)])
+    crash_colors[is.na(crash_colors)] <- "#95a5a6"
+
+    proxy %>% addCircleMarkers(
+      lng         = nearby$LONGITUDE,
+      lat         = nearby$LATITUDE,
+      radius      = 3,
+      color       = crash_colors,
+      fillColor   = crash_colors,
+      fillOpacity = 0.5,
+      weight      = 0,
+      group       = "crash_markers",
+      popup       = paste0("<b>", nearby$SEVERITY_LABEL, "</b><br>",
+                           nearby$FACTOR_CATEGORY)
+    )
   })
 
-  ## Risk stats panel ----
-  output$risk_stats <- renderUI({
-    res      <- route_analysis()
-    risk_val <- round(res$overall_risk, 1)
+  # ── Analysis Panel Outputs ────────────────────────────────────────────────
 
-    risk_label <- if (risk_val < RISK_LOW_THRESHOLD) "LOW RISK"
-                  else if (risk_val < RISK_HIGH_THRESHOLD) "MODERATE RISK"
-                  else "HIGH RISK"
-    risk_class <- if (risk_val < RISK_LOW_THRESHOLD) "risk-low"
-                  else if (risk_val < RISK_HIGH_THRESHOLD) "risk-moderate"
-                  else "risk-high"
+  ## Route KPIs ----
+  output$route_kpis <- renderUI({
+    req(route_analysis())
+    nearby      <- route_analysis()$nearby_accidents
+    res         <- route_analysis()
+    n_crashes   <- nrow(nearby)
+    validate(need(n_crashes > 0, "No accident records found on this corridor."))
 
-    dist_text <- if (!is.na(res$route_distance)) paste0(round(res$route_distance, 1), " km") else "N/A"
+    density_val <- (n_crashes / res$route_length_km) / CITYWIDE_DENSITY[["all"]]
+    inj_rate    <- round(mean(nearby$ANY_INJURY, na.rm = TRUE) * 100, 1)
+    fatalities  <- sum(nearby$PERSONS_KILLED, na.rm = TRUE)
 
-    tags$div(class = "risk-stats-panel",
-      tags$div(class = paste("risk-badge", risk_class), risk_label),
-      tags$div(class = "model-method-note",
-        icon("circle-info"), " ",
-        "Risk = 40% crash frequency\u00a0+\u00a060% GBM injury probability, sampled every 200\u00a0m along route"
+    density_color <- if (density_val > 2) "#e74c3c" else if (density_val > 1) "#f39c12" else "#27ae60"
+    inj_color     <- if (inj_rate > 40)   "#e74c3c" else if (inj_rate > 25)   "#f39c12" else "#27ae60"
+    fat_color     <- if (fatalities > 0)  "#e74c3c" else "#27ae60"
+
+    fluidRow(
+      column(3,
+        tags$div(class = "route-kpi-box",
+          tags$div(class = "kpi-value", format(n_crashes, big.mark = ",")),
+          tags$div(class = "kpi-label", "Crashes on Corridor"),
+          tags$div(class = "kpi-subtext", paste0(round(res$route_length_km, 1), " km route"))
+        )
       ),
-      tags$div(class = "risk-stat-row",
-        tags$span(class = "risk-stat-label", "Distance"),
-        tags$span(class = "risk-stat-value", dist_text)
+      column(3,
+        tags$div(class = "route-kpi-box",
+          tags$div(class = "kpi-value",
+                   style = paste0("color:", density_color),
+                   paste0(round(density_val, 1), "\u00d7")),
+          tags$div(class = "kpi-label", "vs City Average"),
+          tags$div(class = "kpi-subtext",
+                   paste0(round(n_crashes / res$route_length_km, 0), " crashes/km"))
+        )
       ),
-      tags$div(class = "risk-stat-row",
-        tags$span(class = "risk-stat-label", "Historical Accidents Nearby"),
-        tags$span(class = "risk-stat-value", format(res$n_nearby, big.mark = ","))
+      column(3,
+        tags$div(class = "route-kpi-box",
+          tags$div(class = "kpi-value",
+                   style = paste0("color:", inj_color),
+                   paste0(inj_rate, "%")),
+          tags$div(class = "kpi-label", "Injury Rate"),
+          tags$div(class = "kpi-subtext", "of crashes caused injury")
+        )
       ),
-      tags$div(class = "risk-stat-row",
-        tags$span(class = "risk-stat-label", "Injuries on This Corridor"),
-        tags$span(class = "risk-stat-value", style = "color: #f39c12;",
-                  format(res$n_injuries, big.mark = ","))
-      ),
-      tags$div(class = "risk-stat-row",
-        tags$span(class = "risk-stat-label", "Fatalities on This Corridor"),
-        tags$span(class = "risk-stat-value", style = "color: #e74c3c;",
-                  format(res$n_fatal, big.mark = ","))
+      column(3,
+        tags$div(class = "route-kpi-box",
+          tags$div(class = "kpi-value",
+                   style = paste0("color:", fat_color),
+                   fatalities),
+          tags$div(class = "kpi-label", "Fatalities"),
+          tags$div(class = "kpi-subtext", "on this corridor in 2020")
+        )
       )
     )
   })
 
-  ## Route threats panel ----
-  output$route_threats <- renderUI({
-    res <- route_analysis()
+  ## Corridor hourly distribution ----
+  output$corridor_hourly <- renderPlotly({
+    req(route_analysis())
+    nearby <- route_analysis()$nearby_accidents
+    validate(need(nrow(nearby) > 0, "No accident data for this corridor."))
 
-    # Hotspot streets
-    streets_html <- if (nrow(res$hotspot_streets) > 0) {
-      items <- paste0(
-        "<tr><td style='color:#e6edf3;padding:4px 8px;'>", res$hotspot_streets$ON_STREET_NAME,
-        "</td><td style='text-align:right;color:#e74c3c;font-weight:600;padding:4px 8px;'>",
-        res$hotspot_streets$n, " crashes</td></tr>"
-      )
-      paste0("<table style='width:100%;font-size:0.82rem;'>", paste(items, collapse = ""), "</table>")
-    } else {
-      "<p style='color:#8b949e;'>No known hotspots on this route.</p>"
-    }
+    hourly <- nearby %>%
+      count(HOUR) %>%
+      complete(HOUR = 0:23, fill = list(n = 0L))
 
-    # Top causes
-    causes_html <- if (nrow(res$top_causes) > 0) {
-      items <- paste0(
-        "<tr><td style='color:#e6edf3;padding:4px 8px;'>",
-        "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;background:",
-        FACTOR_COLORS[as.character(res$top_causes$FACTOR_CATEGORY)],
-        ";margin-right:6px;'></span>",
-        res$top_causes$FACTOR_CATEGORY,
-        "</td><td style='text-align:right;color:#8b949e;padding:4px 8px;'>",
-        res$top_causes$n, "</td></tr>"
-      )
-      paste0("<table style='width:100%;font-size:0.82rem;'>", paste(items, collapse = ""), "</table>")
-    } else {
-      "<p style='color:#8b949e;'>Insufficient data.</p>"
-    }
-
-    # Advice card
-    advice <- if (res$overall_risk >= RISK_HIGH_THRESHOLD) {
-      "This route passes through high-risk corridors. Consider travelling during off-peak hours or choosing an alternative route."
-    } else if (res$overall_risk >= RISK_LOW_THRESHOLD) {
-      "Moderate risk detected on parts of this route. Stay alert, especially at the highlighted intersections."
-    } else {
-      "This route has relatively low historical accident density. Standard caution applies."
-    }
-
-    tags$div(
-      fluidRow(
-        column(6,
-          tags$div(class = "threat-section",
-            tags$h5(class = "threat-title", icon("map-pin"), " Hotspot Streets"),
-            HTML(streets_html)
-          )
-        ),
-        column(6,
-          tags$div(class = "threat-section",
-            tags$h5(class = "threat-title", icon("exclamation-triangle"), " Top Causes"),
-            HTML(causes_html)
-          )
-        )
-      ),
-      tags$div(class = "advice-card",
-        tags$div(class = "advice-icon", icon("lightbulb")),
-        tags$p(advice)
-      )
-    )
-  })
-
-  # ── Model Performance (static, no route dependency) ──────────────────────
-
-  ## ROC Curve ----
-  output$model_roc <- renderPlotly({
-    roc_coords <- pROC::coords(roc_obj, "all", ret = c("specificity", "sensitivity"))
-    fpr <- 1 - roc_coords$specificity
-    tpr <- roc_coords$sensitivity
-    auc_val <- round(as.numeric(pROC::auc(roc_obj)), 3)
-
-    plot_ly() %>%
-      add_trace(x = c(0, 1), y = c(0, 1), type = "scatter", mode = "lines",
-                line = list(dash = "dash", color = "#30363d"),
-                name = "Random (AUC = 0.50)", showlegend = TRUE) %>%
-      add_trace(x = fpr, y = tpr, type = "scatter", mode = "lines",
-                line = list(color = "#e74c3c", width = 2.5),
-                name = paste0("GBM (AUC = ", auc_val, ")"),
-                hovertemplate = "FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra></extra>") %>%
+    plot_ly(hourly, x = ~HOUR, y = ~n, type = "bar",
+            marker = list(color = "#e74c3c", line = list(width = 0)),
+            hovertemplate = "%{x}:00 \u2014 %{y} crashes<extra></extra>") %>%
       layout(
-        xaxis = c(PLOTLY_XAXIS, list(title = "False Positive Rate", range = c(0, 1))),
-        yaxis = c(PLOTLY_YAXIS, list(title = "True Positive Rate",  range = c(0, 1))),
-        legend = list(x = 0.55, y = 0.2, bgcolor = "rgba(0,0,0,0)"),
-        margin = list(l = 50, r = 20, t = 10, b = 50),
-        annotations = list(
-          list(text = paste0("<b>AUC = ", auc_val, "</b>"),
-               x = 0.75, y = 0.15, showarrow = FALSE,
-               font = list(size = 16, color = "#e74c3c"),
-               bgcolor = "#161b22", bordercolor = "#e74c3c", borderwidth = 1)
-        )
+        xaxis  = c(PLOTLY_XAXIS, list(title = "Hour", tickmode = "linear", dtick = 3)),
+        yaxis  = c(PLOTLY_YAXIS, list(title = "Crashes")),
+        margin = list(l = 50, r = 10, t = 10, b = 40)
       ) %>%
       apply_dark_theme()
   })
 
-  ## Confusion Matrix (heatmap) ----
-  output$model_conf_mat <- renderPlotly({
-    cm_table <- as.matrix(conf_mat$table)
-    z_mat    <- t(cm_table)    # rows = Actual, cols = Predicted
-    labels   <- c("No Injury", "Injury")
+  ## Crashes by Vehicle Type (stacked by severity) ----
+  output$corridor_mode_risk <- renderPlotly({
+    req(route_analysis())
+    nearby <- route_analysis()$nearby_accidents
+    validate(need(nrow(nearby) > 0, "No data."))
 
-    text_mat <- matrix(format(as.vector(z_mat), big.mark = ","), nrow = 2)
+    vtype_sev <- nearby %>%
+      count(PRIMARY_VEHICLE, SEVERITY_LABEL) %>%
+      group_by(PRIMARY_VEHICLE) %>%
+      mutate(total = sum(n)) %>%
+      ungroup() %>%
+      filter(total >= 5) %>%
+      mutate(
+        PRIMARY_VEHICLE = fct_reorder(PRIMARY_VEHICLE, total),
+        SEVERITY_LABEL  = factor(SEVERITY_LABEL, levels = SEVERITY_ORDER)
+      )
 
-    acc  <- round(conf_mat$overall["Accuracy"]     * 100, 1)
-    sens <- round(conf_mat$byClass["Sensitivity"]  * 100, 1)
-    spec <- round(conf_mat$byClass["Specificity"]  * 100, 1)
+    validate(need(nrow(vtype_sev) > 0, "No vehicle type data."))
 
-    plot_ly(
-      z     = z_mat,
-      x     = labels,
-      y     = labels,
-      type  = "heatmap",
-      colorscale   = list(c(0, "#161b22"), c(1, "#e74c3c")),
-      text         = text_mat,
-      texttemplate = "%{text}",
-      textfont     = list(size = 20, color = "white"),
-      showscale    = FALSE,
-      hovertemplate = "Actual: %{y}<br>Predicted: %{x}<br>Count: %{text}<extra></extra>"
-    ) %>%
-      layout(
-        xaxis  = c(PLOTLY_XAXIS, list(title = "Predicted")),
-        yaxis  = c(PLOTLY_YAXIS, list(title = "Actual", autorange = "reversed")),
-        margin = list(l = 80, r = 20, t = 40, b = 60),
-        annotations = list(
-          list(text = paste0("Accuracy: ", acc, "% &nbsp; Sensitivity: ", sens,
-                             "% &nbsp; Specificity: ", spec, "%"),
-               x = 0.5, y = 1.1, xref = "paper", yref = "paper",
-               showarrow = FALSE, font = list(size = 11, color = "#8b949e"))
+    p <- plot_ly()
+    for (sev in SEVERITY_ORDER) {
+      d <- filter(vtype_sev, SEVERITY_LABEL == sev)
+      if (nrow(d) > 0) {
+        p <- p %>% add_bars(
+          data = d, y = ~PRIMARY_VEHICLE, x = ~n, name = sev,
+          orientation = "h",
+          marker = list(color = SEVERITY_COLORS[[sev]], line = list(width = 0)),
+          hovertemplate = paste0("<b>%{y}</b><br>", sev, ": %{x}<extra></extra>")
         )
+      }
+    }
+
+    p %>%
+      layout(
+        barmode = "stack",
+        yaxis   = c(PLOTLY_YAXIS, list(title = "")),
+        xaxis   = c(PLOTLY_XAXIS, list(title = "")),
+        legend  = list(orientation = "h", x = 0.5, xanchor = "center", y = -0.15,
+                       bgcolor = "rgba(0,0,0,0)", font = list(size = 10)),
+        margin  = list(l = 130, r = 10, t = 10, b = 60)
       ) %>%
       apply_dark_theme()
   })
 
-  ## Variable Importance ----
-  output$model_var_imp <- renderPlotly({
-    imp_df <- var_imp$importance %>%
-      tibble::rownames_to_column("Feature") %>%
-      arrange(Overall) %>%
-      mutate(Feature = factor(Feature, levels = Feature))
+  ## Corridor top contributing factors ----
+  output$corridor_factors <- renderPlotly({
+    req(route_analysis())
+    nearby <- route_analysis()$nearby_accidents
 
-    plot_ly(imp_df, y = ~Feature, x = ~Overall, type = "bar", orientation = "h",
+    top5 <- nearby %>%
+      filter(FACTOR_CATEGORY != "Other / Unknown") %>%
+      count(FACTOR_CATEGORY, sort = TRUE) %>%
+      head(5) %>%
+      arrange(n) %>%
+      mutate(FACTOR_CATEGORY = factor(FACTOR_CATEGORY, levels = FACTOR_CATEGORY))
+
+    validate(need(nrow(top5) > 0, "No factor data."))
+
+    plot_ly(top5, y = ~FACTOR_CATEGORY, x = ~n,
+            type = "bar", orientation = "h",
             marker = list(
-              color = ~Overall,
-              colorscale = list(c(0, "#21262d"), c(0.5, "#3498db"), c(1, "#e74c3c")),
-              line = list(width = 0)
+              color = FACTOR_COLORS[as.character(top5$FACTOR_CATEGORY)],
+              line  = list(width = 0)
             ),
-            hovertemplate = "<b>%{y}</b><br>Importance: %{x:.1f}%<extra></extra>") %>%
+            hovertemplate = "<b>%{y}</b>: %{x}<extra></extra>") %>%
       layout(
-        xaxis  = c(PLOTLY_XAXIS, list(title = "Relative Importance (%)")),
         yaxis  = c(PLOTLY_YAXIS, list(title = "")),
-        margin = list(l = 140, r = 20, t = 10, b = 50)
+        xaxis  = c(PLOTLY_XAXIS, list(title = "Crashes")),
+        margin = list(l = 170, r = 10, t = 10, b = 40)
       ) %>%
       apply_dark_theme()
   })
 
-  ## Calibration Plot ----
-  output$model_calibration <- renderPlotly({
-    plot_ly() %>%
-      add_trace(x = c(0, 1), y = c(0, 1), type = "scatter", mode = "lines",
-                line = list(dash = "dash", color = "#30363d"),
-                name = "Perfect Calibration") %>%
-      add_trace(data = cal_df, x = ~mean_predicted, y = ~mean_observed,
-                type = "scatter", mode = "lines+markers",
-                line   = list(color = "#27ae60", width = 2.5),
-                marker = list(size = 8, color = "#27ae60"),
-                name = "GBM Model",
-                text = ~paste0("n = ", format(n, big.mark = ",")),
-                hovertemplate = "Predicted: %{x:.3f}<br>Observed: %{y:.3f}<br>%{text}<extra></extra>") %>%
+  ## Crashes by Day of Week ----
+  output$corridor_dow <- renderPlotly({
+    req(route_analysis())
+    nearby <- route_analysis()$nearby_accidents
+    validate(need(nrow(nearby) > 0, "No data."))
+
+    dow_order <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+    dow <- nearby %>%
+      count(DAY_OF_WEEK) %>%
+      mutate(DAY_OF_WEEK = factor(DAY_OF_WEEK, levels = dow_order))
+
+    bar_colors <- ifelse(dow$DAY_OF_WEEK %in% c("Saturday", "Sunday"), "#e74c3c", "#f39c12")
+
+    plot_ly(dow, x = ~DAY_OF_WEEK, y = ~n, type = "bar",
+            marker = list(color = bar_colors, line = list(width = 0)),
+            hovertemplate = "<b>%{x}</b>: %{y} crashes<extra></extra>") %>%
       layout(
-        xaxis  = c(PLOTLY_XAXIS, list(title = "Mean Predicted Probability", range = c(0, 1))),
-        yaxis  = c(PLOTLY_YAXIS, list(title = "Fraction of Positives",      range = c(0, 1))),
-        legend = list(x = 0.05, y = 0.95, bgcolor = "rgba(0,0,0,0)"),
-        margin = list(l = 50, r = 20, t = 10, b = 50)
+        xaxis  = c(PLOTLY_XAXIS, list(title = "")),
+        yaxis  = c(PLOTLY_YAXIS, list(title = "Crashes")),
+        margin = list(l = 50, r = 10, t = 10, b = 30)
       ) %>%
       apply_dark_theme()
+  })
+
+  ## Danger zones reactive — hotspot detection along route ----
+  danger_zones <- reactive({
+    req(route_analysis())
+    nearby <- route_analysis()$nearby_accidents
+    res    <- route_analysis()
+    if (nrow(nearby) < HOTSPOT_MIN_CRASHES) return(NULL)
+
+    # Convert crashes to CRS_NYC
+    filt_sf <- st_as_sf(nearby, coords = c("LONGITUDE", "LATITUDE"), crs = CRS_WGS84) %>%
+      st_transform(CRS_NYC)
+
+    # Sample points along route at fine intervals
+    n_pts <- as.integer(max(10L, round(res$route_length_km * 1000 / HOTSPOT_SAMPLE_STEP)))
+    fracs <- seq(0, 1, length.out = n_pts)
+    pts   <- st_line_sample(res$route_proj, sample = fracs) %>% st_cast("POINT")
+
+    # Count filtered crashes within HOTSPOT_RADIUS of each point
+    counts <- lengths(st_intersects(st_buffer(pts, HOTSPOT_RADIUS), filt_sf))
+
+    # Peak-finding: greedy selection with minimum separation
+    zones      <- list()
+    coords_utm <- st_coordinates(pts)
+    remaining  <- seq_along(counts)
+
+    for (z in 1:3) {
+      if (length(remaining) == 0) break
+      best_idx <- remaining[which.max(counts[remaining])]
+      if (counts[best_idx] < HOTSPOT_MIN_CRASHES) break
+
+      # Get crashes in this zone
+      zone_buffer <- st_buffer(pts[best_idx], HOTSPOT_RADIUS)
+      zone_hits   <- st_intersects(zone_buffer, filt_sf)[[1]]
+      zone_data   <- nearby[zone_hits, ]
+
+      # Zone centroid in WGS84
+      centroid_wgs <- st_coordinates(st_transform(pts[best_idx], CRS_WGS84))
+
+      # Most common street name in zone
+      zone_street <- zone_data %>%
+        filter(!is.na(ON_STREET_NAME), ON_STREET_NAME != "") %>%
+        count(ON_STREET_NAME, sort = TRUE) %>%
+        slice(1) %>% pull(ON_STREET_NAME)
+      zone_street <- if (length(zone_street) == 0) "Unknown area" else zone_street
+
+      # Top contributing factor
+      top_factor <- zone_data %>%
+        filter(FACTOR_CATEGORY != "Other / Unknown") %>%
+        count(FACTOR_CATEGORY, sort = TRUE) %>%
+        slice(1) %>% pull(FACTOR_CATEGORY)
+      top_factor <- if (length(top_factor) == 0) "Unspecified" else top_factor
+
+      zones[[z]] <- list(
+        rank        = z,
+        lng         = centroid_wgs[1, "X"],
+        lat         = centroid_wgs[1, "Y"],
+        crashes     = nrow(zone_data),
+        injury_rate = round(mean(zone_data$ANY_INJURY, na.rm = TRUE) * 100, 0),
+        fatalities  = sum(zone_data$PERSONS_KILLED, na.rm = TRUE),
+        street      = zone_street,
+        top_factor  = top_factor
+      )
+
+      # Mask out points within HOTSPOT_MIN_SEP of this peak
+      dists <- sqrt((coords_utm[remaining, 1] - coords_utm[best_idx, 1])^2 +
+                    (coords_utm[remaining, 2] - coords_utm[best_idx, 2])^2)
+      remaining <- remaining[dists > HOTSPOT_MIN_SEP]
+    }
+
+    if (length(zones) == 0) NULL else zones
+  })
+
+  ## Observer 3: Danger zone markers on map ----
+  observe({
+    proxy <- leafletProxy("route_map") %>% clearGroup("danger_zones")
+    zones <- danger_zones()
+    if (is.null(zones)) return()
+
+    zone_colors <- c("#e74c3c", "#e67e22", "#f1c40f")
+
+    for (z in zones) {
+      proxy <- proxy %>%
+        addCircleMarkers(
+          lng = z$lng, lat = z$lat, radius = 18,
+          color = zone_colors[z$rank], fillColor = zone_colors[z$rank],
+          fillOpacity = 0.25, weight = 2, group = "danger_zones",
+          popup = paste0(
+            "<div style='font-family:Inter,sans-serif;min-width:180px;'>",
+            "<b style='font-size:1rem;color:", zone_colors[z$rank], ";'>Zone ", z$rank,
+            " \u2014 ", htmltools::htmlEscape(z$street), "</b><br>",
+            "<span style='color:#e6edf3;'>", z$crashes, " crashes</span><br>",
+            "<span style='color:#f39c12;'>", z$injury_rate, "% injury rate</span>",
+            if (z$fatalities > 0) paste0("<br><span style='color:#e74c3c;'>",
+                                          z$fatalities, " fatalities</span>") else "",
+            "<br><span style='color:#8b949e;'>Top cause: ", htmltools::htmlEscape(z$top_factor), "</span>",
+            "</div>"
+          )
+        ) %>%
+        addLabelOnlyMarkers(
+          lng = z$lng, lat = z$lat, group = "danger_zones",
+          label = as.character(z$rank),
+          labelOptions = labelOptions(
+            noHide = TRUE, direction = "center", textOnly = TRUE,
+            style = list("font-size" = "14px", "font-weight" = "700",
+                         "color" = "white")
+          )
+        )
+    }
+  })
+
+  ## Danger zone cards ----
+  output$danger_zone_cards <- renderUI({
+    zones <- danger_zones()
+    if (is.null(zones)) {
+      return(tags$div(class = "low-data-banner",
+        icon("shield-halved"),
+        tags$span("Not enough data to identify danger zones for these filters.")
+      ))
+    }
+
+    zone_colors <- c("#e74c3c", "#e67e22", "#f1c40f")
+
+    cards <- lapply(zones, function(z) {
+      column(4,
+        tags$div(
+          class = "danger-zone-card",
+          style = paste0("border-left:3px solid ", zone_colors[z$rank], ";cursor:pointer;"),
+          onclick = sprintf(
+            "Shiny.setInputValue('flyto_zone', {lng: %f, lat: %f, rank: %d}, {priority:'event'});",
+            z$lng, z$lat, z$rank
+          ),
+          tags$div(class = "zone-header",
+            tags$span(class = "zone-badge",
+                      style = paste0("background:", zone_colors[z$rank]),
+                      z$rank),
+            tags$span(class = "zone-street", z$street)
+          ),
+          tags$div(class = "zone-stats",
+            tags$span(class = "zone-stat",
+              tags$b(z$crashes), " crashes"),
+            tags$span(class = "zone-stat",
+              tags$b(paste0(z$injury_rate, "%")), " injured"),
+            if (z$fatalities > 0)
+              tags$span(class = "zone-stat zone-fatal",
+                tags$b(z$fatalities), " fatal")
+          ),
+          tags$div(class = "zone-factor",
+            tags$span(style = "color:var(--text-muted);", "Top cause: "),
+            tags$span(style = "color:var(--text-secondary);", z$top_factor)
+          )
+        )
+      )
+    })
+
+    do.call(fluidRow, cards)
+  })
+
+  ## FlyTo observer (danger zone card click) ----
+  observeEvent(input$flyto_zone, {
+    z <- input$flyto_zone
+    leafletProxy("route_map") %>%
+      flyTo(lng = z$lng, lat = z$lat, zoom = 16)
   })
 
 } # end server

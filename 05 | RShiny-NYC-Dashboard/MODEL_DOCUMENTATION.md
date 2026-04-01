@@ -1,62 +1,55 @@
 # Model Documentation — NYC Accidents Injury Prediction
 
-## Objective
+## 1. Objective
 
-Predict whether a traffic accident in New York City will result in an injury (or fatality) versus property damage only. The model powers the Route Risk Predictor (Tab 5) in the Shiny dashboard, enabling users to assess risk along a planned route before any accident occurs.
+We set out to build a predictive model for the Route Risk Predictor (Tab 5) that would predict whether a traffic accident results in an injury or fatality, given only pre-crash information (time, location, vehicle type). The goal was to score route segments so users could see not just where accidents happened, but how likely they were to be severe under specific conditions.
 
-## Target Variable
+## 2. What We Built
 
-**ANY_INJURY** — binary (Yes / No). An accident is labelled "Yes" if at least one person was injured or killed. The dataset has a 27.4% positive rate (roughly 1 in 4 accidents causes injury).
+### Target Variable
 
-## Feature Selection
+**ANY_INJURY** — binary (TRUE/FALSE). An accident is labelled TRUE if at least one person was injured or killed. The dataset has a 27.4% positive rate.
 
-All features must be knowable **before** an accident happens, since the model is used for prospective risk assessment on planned routes.
+### Feature Selection
+
+All features are knowable before an accident occurs (no post-hoc information):
 
 | Feature | Type | Rationale |
 |---------|------|-----------|
-| HOUR | numeric (0–23) | Injury rates vary sharply by time of day |
-| DAY_OF_WEEK_NUM | numeric (1–7) | Weekend vs weekday patterns differ |
-| MONTH_NUM | numeric (1–12) | Seasonal effects (weather, daylight) |
-| IS_WEEKEND | factor | Binary weekend flag |
-| IS_RUSH_HOUR | factor | 7–9 AM / 4–6 PM peak congestion |
+| HOUR | numeric (0-23) | Injury rates vary by time of day |
+| DAY_OF_WEEK_NUM | numeric (1-7) | Weekend vs weekday patterns |
+| MONTH_NUM | numeric (1-12) | Seasonal effects |
+| IS_WEEKEND | logical | Binary weekend flag |
+| IS_RUSH_HOUR | logical | Peak congestion periods |
 | TIME_PERIOD | factor (4 levels) | Morning / Afternoon / Evening / Night |
 | BOROUGH | factor (5 levels) | Borough-level geography |
-| PRIMARY_VEHICLE | factor (7 levels) | Vehicle type of primary vehicle involved |
-| LATITUDE | numeric | Fine-grained spatial location |
-| LONGITUDE | numeric | Fine-grained spatial location |
+| PRIMARY_VEHICLE | factor (7 levels) | Vehicle type involved |
+| LATITUDE | numeric | Spatial location |
+| LONGITUDE | numeric | Spatial location |
 
-### Excluded Features
+Features like FACTOR_CATEGORY, N_VEHICLES, and victim-type flags were excluded because they are only known after a crash occurs.
 
-| Feature | Reason |
-|---------|--------|
-| FACTOR_CATEGORY | Post-hoc: contributing factor is determined after the crash |
-| N_VEHICLES | Post-hoc: number of vehicles involved is only known once the crash occurs |
-| SEVERITY_LABEL | Derived from the target — would be data leakage |
-| PED/CYC/MOT flags | Post-hoc victim information |
-
-## Algorithm Selection
+### Algorithm Comparison
 
 Four algorithms were compared using 5-fold cross-validation on 38,156 training observations, optimising for ROC AUC:
 
 | Algorithm | CV AUC | Test AUC |
 |-----------|--------|----------|
-| Logistic Regression (GLM) | 0.6253 | 0.6218 |
-| Decision Tree (RPART) | 0.6122 | 0.6096 |
-| Random Forest (RF) | 0.6131 | 0.6097 |
-| **Gradient Boosting (GBM)** | **0.6358** | **0.6343** |
+| Logistic Regression (GLM) | 0.625 | 0.622 |
+| Decision Tree (RPART) | 0.612 | 0.610 |
+| Random Forest (RF) | 0.613 | 0.610 |
+| **Gradient Boosting (GBM)** | **0.636** | **0.635** |
 
-**Winner: Gradient Boosting Machine (GBM)** — consistently highest AUC across both cross-validation and held-out test set.
+GBM was selected as the best-performing algorithm.
 
-The comparison code, dotplot, and full results are in `model_comparison.R` and `DATA/model_comparison_results.txt`.
+### Final Model Configuration
 
-## Final Model
+- **Algorithm:** GBM via `caret::train()` with 5-fold CV
+- **Hyperparameters:** n.trees = 200, interaction.depth = 3, shrinkage = 0.1, n.minobsinnode = 10
+- **Training set:** 38,156 rows (80%) | **Test set:** 9,538 rows (20%)
+- **Stratified split** on ANY_INJURY to preserve class balance
 
-**Algorithm:** GBM via `caret::train()` with 5-fold CV
-**Hyperparameters:** n.trees = 200, interaction.depth = 3, shrinkage = 0.1, n.minobsinnode = 10
-**Training set:** 38,156 rows (80%) | **Test set:** 9,538 rows (20%)
-**Stratified split** on ANY_INJURY to preserve class balance.
-
-### Performance on Test Set
+## 3. Results
 
 | Metric | Value |
 |--------|-------|
@@ -65,62 +58,50 @@ The comparison code, dotplot, and full results are in `model_comparison.R` and `
 
 ### Top 5 Important Features
 
-1. PRIMARY_VEHICLE (Bicycle / E-Bike) — 100%
+1. PRIMARY_VEHICLE (Bicycle / E-Bike) — 100% relative importance
 2. MONTH_NUM — 58%
 3. LONGITUDE — 48%
 4. LATITUDE — 44%
 5. HOUR — 41%
 
-Bicycle/E-Bike involvement is the strongest predictor of injury, consistent with the vulnerability of cyclists. Geographic coordinates (lat/lon) rank highly, confirming that location matters for injury severity. Temporal features (month, hour) capture seasonal and time-of-day risk patterns.
+The model's calibration was sound: predicted probabilities aligned with observed injury rates across all probability bins.
 
-## Model Performance Context
+## 4. Critical Evaluation
 
-An AUC of 0.635 is modest but expected. Injury severity in traffic accidents is fundamentally driven by crash-specific factors — impact speed, collision angle, seatbelt use, pedestrian involvement — none of which are knowable before the crash occurs.
+An AUC of 0.635 is modest. This is not a failure of methodology — it reflects a fundamental limitation of the prediction task. Injury severity in traffic accidents is driven by crash-specific factors: impact speed, collision angle, seatbelt use, pedestrian positioning, road surface conditions. None of these are knowable before an accident occurs.
 
-The model's value is not in predicting individual outcomes with high precision. Instead, it provides **meaningful relative risk differentiation**: a predicted probability of 0.40 genuinely represents higher risk than 0.20. This is sufficient for ranking route segments and highlighting higher-risk areas and time windows.
+With only pre-crash features (time, location, vehicle type), the model can capture broad patterns (cyclists are more vulnerable, certain intersections are riskier) but cannot meaningfully distinguish which specific future accident will cause injury versus property damage only. The 0.635 AUC is consistent across all four algorithms tested, confirming this is a ceiling imposed by the available features, not by the algorithm choice.
 
-The calibration data confirms the model is well-calibrated: predicted probabilities align with observed injury rates across all probability bins.
+## 5. The Decision: Analysis Over Prediction
 
-## Two-Stage Risk Assessment (Tab 5)
+After evaluating the model, we asked: **does this prediction actually help the user?**
 
-The Route Risk Predictor combines two complementary approaches:
+The Route Risk Predictor is designed for someone planning a trip through NYC who wants to understand the safety profile of their route. The question they are asking is not "will my next crash cause injury?" — it is "where are the dangerous spots, when should I be most careful, and what should I watch out for?"
 
-### Stage 1 — Historical Spatial Density
-The route polyline (obtained from the OSRM routing API) is buffered by 75 metres and spatially joined with all 74,881 historical accidents. This identifies:
-- **Dangerous intersections** with high accident counts
-- **Hotspot streets** along the route
-- **Top contributing factors** in the area
+A model that outputs a probability between 0.20 and 0.35 for every route segment does not meaningfully answer that question. The prediction is too uncertain to be actionable, and presenting it as a "risk score" would give users false confidence in a weak signal.
 
-This stage answers: *"Where have accidents happened near this route?"*
+Instead, we chose to provide **direct analysis of historical accident data** along the route, which gives users concrete, interpretable, and genuinely useful information:
 
-### Stage 2 — Predictive Model
-The GBM model scores each route segment using the user's selected conditions (time of day, day of week, vehicle type) plus the segment's coordinates. This adds:
-- **Temporal context**: "This area is riskier at night"
-- **Vehicle-specific risk**: "Cyclists face higher injury risk here"
-- **Seasonal patterns**: "Winter months increase severity"
+- **Hotspot detection:** The top 3 danger zones along the route, identified by spatial density clustering of historical crashes within 100m of sample points along the route. Each zone shows crash count, injury rate, and the most common contributing factor.
+- **Temporal patterns:** When crashes happen by day of week and hour of day, so users can plan travel timing.
+- **Vehicle type breakdown:** Which vehicle types are involved in corridor crashes and how severe they are, helping users understand mode-specific risks.
+- **Contributing factors:** What causes crashes on this specific route, so users know what to watch for.
 
-This stage answers: *"Given these conditions, how severe would an accident be?"*
+This approach provides more actionable value than a weak predictive score. A user seeing "47 crashes near Belt Parkway, mostly from distraction, peaking at 5 PM on Fridays" can make better decisions than seeing "risk score: 0.31."
 
-### Combined Output
-The two stages are combined to produce:
-- A **risk-coloured route** (green → amber → red)
-- A **risk score** (0–100%)
-- **Hotspot warnings** for specific intersections
-- **Contextual advice** based on the top risk factors
+## 6. Scripts Included
 
-## Artifacts
+The model comparison and training scripts are included in the repository for full reproducibility:
 
-All model artifacts are stored in `DATA/processed_data.RData`:
+| Script | Purpose |
+|--------|---------|
+| `model_comparison.R` | Compares GLM, Decision Tree, Random Forest, GBM via 5-fold CV |
+| `model_training.R` | Trains the final GBM model with tuned hyperparameters |
+| `DATA/model_comparison_results.txt` | Full comparison results and metrics |
+| `DATA/model_comparison_dotplot.png` | Visual comparison of algorithm performance |
 
-| Object | Description |
-|--------|-------------|
-| final_model | Trained caret GBM model object |
-| conf_mat | Confusion matrix (confusionMatrix object) |
-| roc_obj | pROC::roc object for ROC curve plotting |
-| var_imp | Variable importance (varImp object) |
-| cal_df | Calibration data — 10 bins of predicted vs observed rates |
-| test_df | Held-out test set (9,538 rows) for reproducibility |
+Model artifacts (final_model, conf_mat, roc_obj, var_imp, cal_df, test_df) remain in `DATA/processed_data.RData` for reproducibility.
 
-## Reproducibility
+## 7. Reproducibility
 
-Both scripts use `set.seed(42)` and identical data preparation steps. Running `model_comparison.R` followed by `model_training.R` from the `05 | RShiny-NYC-Dashboard/` directory reproduces all results. The processed dataset (`data_processing.R`) must be generated first.
+Both scripts use `set.seed(42)` and identical data preparation. Running `model_comparison.R` followed by `model_training.R` from the `05 | RShiny-NYC-Dashboard/` directory reproduces all results. The processed dataset (`data_processing.R`) must be generated first.

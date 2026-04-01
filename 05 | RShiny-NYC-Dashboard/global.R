@@ -22,7 +22,7 @@ library(caret)
 library(gbm)
 library(pROC)
 library(sf)
-library(osrm)
+library(openrouteservice)
 library(tidygeocoder)
 
 # Load Preprocessed Data ====
@@ -86,30 +86,31 @@ PLOTLY_YAXIS <- list(gridcolor = "#21262d", zerolinecolor = "#30363d", color = "
 
 # Route Risk Predictor Constants ====
 
-## Input choices ----
-VEHICLE_CHOICES <- c("Sedan", "SUV / Wagon", "Taxi / Livery",
-                     "Truck / Van / Bus", "Motorcycle / Scooter",
-                     "Bicycle / E-Bike", "Other")
+## Map-specific severity colors — lighter PDO for dark tile visibility ----
+CRASH_MAP_COLORS <- c(
+  "Property Damage Only" = "#95a5a6",
+  "Injury"               = "#f39c12",
+  "Severe Injury"        = "#e67e22",
+  "Fatal"                = "#e74c3c"
+)
 
-DAY_CHOICES <- setNames(1:7, c("Monday", "Tuesday", "Wednesday",
-                                "Thursday", "Friday", "Saturday", "Sunday"))
+## Citywide accident density baseline ----
+NYC_ROAD_KM      <- 9600L
+CITYWIDE_DENSITY <- list(all = nrow(df) / NYC_ROAD_KM)
 
-MONTH_CHOICES <- setNames(1:MAX_MONTH, month.name[1:MAX_MONTH])
+## Danger zone detection ----
+HOTSPOT_RADIUS      <- 100L   # metres — crash search radius around each sample point
+HOTSPOT_MIN_SEP     <- 200L   # metres — minimum distance between zone centers
+HOTSPOT_MIN_CRASHES <- 3L     # minimum crashes to qualify as a zone
+HOTSPOT_SAMPLE_STEP <- 50L    # metres between sample points for peak detection
 
-TIME_PERIOD_LEVELS <- c("Morning", "Afternoon", "Evening", "Night")
-
-## Risk scoring ----
-RISK_LOW_THRESHOLD  <- 30
-RISK_HIGH_THRESHOLD <- 60
-RISK_COLORS_MAP     <- c(LOW = "#27ae60", MODERATE = "#f39c12", HIGH = "#e74c3c")
-
-WEIGHT_DENSITY <- 0.4
-WEIGHT_MODEL   <- 0.6
-DENSITY_CAP    <- 50L
+## ORS API ----
+ORS_API_KEY <- Sys.getenv("ORS_API_KEY")
+ors_api_key(ORS_API_KEY)
 
 ## Route spatial params ----
-ROUTE_SAMPLE_INTERVAL <- 200   # metres between sample points
-ROUTE_BUFFER_RADIUS   <- 75    # metres buffer for density scoring
+ROUTE_SAMPLE_INTERVAL <- 200   # metres between sample points (used in Part 2)
+ROUTE_BUFFER_RADIUS   <- 25L   # metres each side → 50m total corridor width
 CRS_WGS84 <- 4326L
 CRS_NYC   <- 32618L            # UTM Zone 18N (metric)
 

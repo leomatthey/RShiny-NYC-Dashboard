@@ -34,25 +34,24 @@ if (!dir.exists("DATA")) dir.create("DATA")
 raw <- read_csv(DATA_IN, show_col_types = FALSE)
 
 # Uppercase + underscores: "CRASH DATE" -> "CRASH_DATE"
-df <- raw |>
+df <- raw %>%
   rename_with(~ str_replace_all(str_to_upper(.), "\\s+", "_"))
 
 # Feature Engineering =========================================================
 
 ## Temporal Features -----------------------------------------------------------
 
-df <- df |>
+df <- df %>%
   mutate(
     CRASH_DATETIME = parse_date_time(
       paste(CRASH_DATE, CRASH_TIME), orders = "ymd HMS", quiet = TRUE
     ),
     HOUR            = hour(CRASH_DATETIME),
     DAY_OF_WEEK_NUM = wday(CRASH_DATETIME, week_start = 1L),        # 1 = Mon
-    DAY_OF_WEEK     = wday(CRASH_DATETIME, label = TRUE, abbr = FALSE,
-                           week_start = 1L) |> as.character(),
+    DAY_OF_WEEK     = as.character(wday(CRASH_DATETIME, label = TRUE, abbr = FALSE,
+                                       week_start = 1L)),
     MONTH_NUM       = month(CRASH_DATETIME),
-    MONTH           = month(CRASH_DATETIME, label = TRUE, abbr = FALSE) |>
-                        as.character(),
+    MONTH           = as.character(month(CRASH_DATETIME, label = TRUE, abbr = FALSE)),
     IS_WEEKEND      = DAY_OF_WEEK_NUM %in% c(6L, 7L),
     IS_RUSH_HOUR    = (HOUR >= 7L & HOUR <= 9L) | (HOUR >= 16L & HOUR <= 18L),
     TIME_PERIOD     = factor(
@@ -68,12 +67,13 @@ df <- df |>
 
 ## Geographic Cleaning ---------------------------------------------------------
 
-df <- df |>
+df <- df %>%
   mutate(
-    BOROUGH = str_to_title(BOROUGH) |>
-      replace_na("Unknown") |>
-      factor(levels = c("Manhattan", "Brooklyn", "Queens",
-                        "Bronx", "Staten Island", "Unknown")),
+    BOROUGH = factor(
+      replace_na(str_to_title(BOROUGH), "Unknown"),
+      levels = c("Manhattan", "Brooklyn", "Queens",
+                 "Bronx", "Staten Island", "Unknown")
+    ),
     VALID_COORDS = !is.na(LATITUDE) & !is.na(LONGITUDE) &
                    between(LATITUDE,   40.40,  40.95) &
                    between(LONGITUDE, -74.30, -73.60)
@@ -82,7 +82,7 @@ df <- df |>
 ## Severity --------------------------------------------------------------------
 # Fatal > Severe Injury (>=3 injured) > Injury (>=1 injured) > PDO
 
-df <- df |>
+df <- df %>%
   rename(
     PERSONS_INJURED = NUMBER_OF_PERSONS_INJURED,
     PERSONS_KILLED  = NUMBER_OF_PERSONS_KILLED,
@@ -92,7 +92,7 @@ df <- df |>
     CYC_KILLED      = NUMBER_OF_CYCLIST_KILLED,
     MOT_INJURED     = NUMBER_OF_MOTORIST_INJURED,
     MOT_KILLED      = NUMBER_OF_MOTORIST_KILLED
-  ) |>
+  ) %>%
   mutate(
     SEVERITY_LABEL = factor(
       case_when(
@@ -163,22 +163,22 @@ categorise_factor <- function(x) {
 ### Primary factor per collision -----------------------------------------------
 # Pick the first non-"Unspecified" factor across the 5 vehicle slots
 
-factor_primary <- df |>
-  select(COLLISION_ID, matches("CONTRIBUTING_FACTOR_VEHICLE_\\d")) |>
+factor_primary <- df %>%
+  select(COLLISION_ID, matches("CONTRIBUTING_FACTOR_VEHICLE_\\d")) %>%
   pivot_longer(
     cols      = -COLLISION_ID,
     names_to  = "slot",
     values_to = "factor"
-  ) |>
+  ) %>%
   filter(!is.na(factor),
-         !str_to_lower(str_trim(factor)) %in% c("unspecified", "")) |>
-  group_by(COLLISION_ID) |>
-  slice(1L) |>
-  ungroup() |>
+         !str_to_lower(str_trim(factor)) %in% c("unspecified", "")) %>%
+  group_by(COLLISION_ID) %>%
+  slice(1L) %>%
+  ungroup() %>%
   select(COLLISION_ID, PRIMARY_FACTOR = factor)
 
-df <- df |>
-  left_join(factor_primary, by = "COLLISION_ID") |>
+df <- df %>%
+  left_join(factor_primary, by = "COLLISION_ID") %>%
   mutate(
     PRIMARY_FACTOR  = replace_na(PRIMARY_FACTOR, "Unspecified"),
     FACTOR_CATEGORY = factor(
@@ -219,21 +219,21 @@ categorise_vehicle <- function(x) {
 ### Primary vehicle per collision ----------------------------------------------
 # Pick the first non-NA vehicle type across the 5 vehicle slots
 
-vehicle_primary <- df |>
-  select(COLLISION_ID, matches("VEHICLE_TYPE_CODE_\\d")) |>
+vehicle_primary <- df %>%
+  select(COLLISION_ID, matches("VEHICLE_TYPE_CODE_\\d")) %>%
   pivot_longer(
     cols      = -COLLISION_ID,
     names_to  = "slot",
     values_to = "vehicle"
-  ) |>
-  filter(!is.na(vehicle), str_trim(vehicle) != "") |>
-  group_by(COLLISION_ID) |>
-  slice(1L) |>
-  ungroup() |>
+  ) %>%
+  filter(!is.na(vehicle), str_trim(vehicle) != "") %>%
+  group_by(COLLISION_ID) %>%
+  slice(1L) %>%
+  ungroup() %>%
   select(COLLISION_ID, PRIMARY_VEHICLE_RAW = vehicle)
 
-df <- df |>
-  left_join(vehicle_primary, by = "COLLISION_ID") |>
+df <- df %>%
+  left_join(vehicle_primary, by = "COLLISION_ID") %>%
   mutate(
     PRIMARY_VEHICLE = factor(
       categorise_vehicle(replace_na(PRIMARY_VEHICLE_RAW, "unknown")),
@@ -241,12 +241,12 @@ df <- df |>
                  "Truck / Van / Bus", "Motorcycle / Scooter",
                  "Bicycle / E-Bike", "Other")
     )
-  ) |>
+  ) %>%
   select(-PRIMARY_VEHICLE_RAW)
 
 ## Vehicle Count ---------------------------------------------------------------
 
-df <- df |>
+df <- df %>%
   mutate(
     N_VEHICLES = rowSums(!is.na(pick(matches("VEHICLE_TYPE_CODE_\\d"))))
   )
@@ -258,8 +258,8 @@ df <- df |>
 
 ## Hour x Day-of-Week Heatmap (Tab 3) -----------------------------------------
 
-heatmap_counts <- df |>
-  group_by(HOUR, DAY_OF_WEEK_NUM, DAY_OF_WEEK) |>
+heatmap_counts <- df %>%
+  group_by(HOUR, DAY_OF_WEEK_NUM, DAY_OF_WEEK) %>%
   summarise(
     crashes = n(),
     injured = sum(PERSONS_INJURED, na.rm = TRUE),
@@ -268,9 +268,9 @@ heatmap_counts <- df |>
 
 ## Borough Summary (Tab 1 dual-axis) -------------------------------------------
 
-borough_summary <- df |>
-  filter(BOROUGH != "Unknown") |>
-  group_by(BOROUGH) |>
+borough_summary <- df %>%
+  filter(BOROUGH != "Unknown") %>%
+  group_by(BOROUGH) %>%
   summarise(
     crashes    = n(),
     injured    = sum(PERSONS_INJURED,  na.rm = TRUE),
@@ -281,17 +281,17 @@ borough_summary <- df |>
 
 ## Borough x Severity (Tab 1 stacked bar) -------------------------------------
 
-borough_severity <- df |>
-  filter(BOROUGH != "Unknown") |>
-  count(BOROUGH, SEVERITY_LABEL, name = "n") |>
-  group_by(BOROUGH) |>
-  mutate(pct = round(n / sum(n) * 100, 2)) |>
+borough_severity <- df %>%
+  filter(BOROUGH != "Unknown") %>%
+  count(BOROUGH, SEVERITY_LABEL, name = "n") %>%
+  group_by(BOROUGH) %>%
+  mutate(pct = round(n / sum(n) * 100, 2)) %>%
   ungroup()
 
 ## Hourly Distribution (Tab 1 overview bar) ------------------------------------
 
-hourly_summary <- df |>
-  group_by(HOUR) |>
+hourly_summary <- df %>%
+  group_by(HOUR) %>%
   summarise(
     crashes    = n(),
     injured    = sum(PERSONS_INJURED, na.rm = TRUE),
@@ -301,55 +301,55 @@ hourly_summary <- df |>
 
 ## Hour x Borough Heatmap (Tab 3) ----------------------------------------------
 
-borough_heatmap <- df |>
-  filter(BOROUGH != "Unknown") |>
+borough_heatmap <- df %>%
+  filter(BOROUGH != "Unknown") %>%
   count(HOUR, BOROUGH, name = "crashes")
 
 ## Top 20 Contributing Factors (Tab 4) -----------------------------------------
 
-top_factors <- df |>
-  filter(PRIMARY_FACTOR != "Unspecified") |>
-  group_by(PRIMARY_FACTOR, FACTOR_CATEGORY) |>
+top_factors <- df %>%
+  filter(PRIMARY_FACTOR != "Unspecified") %>%
+  group_by(PRIMARY_FACTOR, FACTOR_CATEGORY) %>%
   summarise(
     crashes    = n(),
     pct_injury = round(mean(ANY_INJURY, na.rm = TRUE) * 100, 1),
     .groups    = "drop"
-  ) |>
+  ) %>%
   slice_max(crashes, n = 20L)
 
 ## Vehicle x Severity (Tab 4 stacked bar) --------------------------------------
 
-vehicle_breakdown <- df |>
-  count(PRIMARY_VEHICLE, SEVERITY_LABEL, name = "n") |>
-  group_by(PRIMARY_VEHICLE) |>
+vehicle_breakdown <- df %>%
+  count(PRIMARY_VEHICLE, SEVERITY_LABEL, name = "n") %>%
+  group_by(PRIMARY_VEHICLE) %>%
   mutate(
     total = sum(n),
     pct   = round(n / total * 100, 2)
-  ) |>
+  ) %>%
   ungroup()
 
 ## Monthly Factor Trends (Tab 4 line chart) ------------------------------------
 
-monthly_factor_trends <- df |>
-  filter(as.character(FACTOR_CATEGORY) != "Other / Unknown") |>
+monthly_factor_trends <- df %>%
+  filter(as.character(FACTOR_CATEGORY) != "Other / Unknown") %>%
   count(MONTH_NUM, MONTH, FACTOR_CATEGORY, name = "crashes")
 
 ## Vehicle x Factor Breakdown (Tab 4 stacked bar) ------------------------------
 
-vehicle_factor_breakdown <- df |>
-  filter(as.character(FACTOR_CATEGORY) != "Other / Unknown") |>
-  count(PRIMARY_VEHICLE, FACTOR_CATEGORY, name = "n") |>
-  group_by(PRIMARY_VEHICLE) |>
-  mutate(pct = round(n / sum(n) * 100, 2)) |>
+vehicle_factor_breakdown <- df %>%
+  filter(as.character(FACTOR_CATEGORY) != "Other / Unknown") %>%
+  count(PRIMARY_VEHICLE, FACTOR_CATEGORY, name = "n") %>%
+  group_by(PRIMARY_VEHICLE) %>%
+  mutate(pct = round(n / sum(n) * 100, 2)) %>%
   ungroup()
 
 ## Factor Severity Profile (Tab 4 stacked bar) ---------------------------------
 
-factor_severity <- df |>
-  filter(as.character(FACTOR_CATEGORY) != "Other / Unknown") |>
-  count(FACTOR_CATEGORY, SEVERITY_LABEL, name = "n") |>
-  group_by(FACTOR_CATEGORY) |>
-  mutate(pct = round(n / sum(n) * 100, 2)) |>
+factor_severity <- df %>%
+  filter(as.character(FACTOR_CATEGORY) != "Other / Unknown") %>%
+  count(FACTOR_CATEGORY, SEVERITY_LABEL, name = "n") %>%
+  group_by(FACTOR_CATEGORY) %>%
+  mutate(pct = round(n / sum(n) * 100, 2)) %>%
   ungroup()
 
 # Save =========================================================================
