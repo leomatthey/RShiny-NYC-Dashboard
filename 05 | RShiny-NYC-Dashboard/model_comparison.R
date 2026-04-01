@@ -40,15 +40,15 @@ TARGET <- "ANY_INJURY"
 # Exclude Unknown borough (not useful for prediction), convert logicals to
 # factors for consistent handling across all algorithms, drop incomplete rows.
 
-model_df <- df |>
-  filter(BOROUGH != "Unknown", VALID_COORDS == TRUE) |>
-  select(all_of(c(FEATURES, TARGET))) |>
+model_df <- df %>%
+  filter(BOROUGH != "Unknown", VALID_COORDS == TRUE) %>%
+  select(all_of(c(FEATURES, TARGET))) %>%
   mutate(
     ANY_INJURY   = factor(ifelse(ANY_INJURY, "Yes", "No"), levels = c("No", "Yes")),
     IS_WEEKEND   = as.factor(IS_WEEKEND),
     IS_RUSH_HOUR = as.factor(IS_RUSH_HOUR),
     BOROUGH      = droplevels(BOROUGH)
-  ) |>
+  ) %>%
   na.omit()
 
 # Train/Test Split =============================================================

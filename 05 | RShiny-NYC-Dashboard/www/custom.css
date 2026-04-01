@@ -911,16 +911,3 @@ table.dataTable tbody tr.odd {
   gap: 10px;
   margin-bottom: 12px;
 }
-
-/* Model performance tabBox dark theme override */
-#model_tabs .nav-tabs > li > a {
-  color: var(--text-muted) !important;
-  background: transparent !important;
-  border-color: transparent !important;
-}
-
-#model_tabs .nav-tabs > li.active > a {
-  color: var(--text-primary) !important;
-  background: var(--bg-card) !important;
-  border-bottom-color: var(--accent-red) !important;
-}

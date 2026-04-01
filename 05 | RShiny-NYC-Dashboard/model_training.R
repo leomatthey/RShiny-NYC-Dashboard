@@ -45,15 +45,15 @@ TARGET <- "ANY_INJURY"
 
 ## Build model-ready dataframe --------------------------------------------------
 
-model_df <- df |>
-  filter(BOROUGH != "Unknown", VALID_COORDS == TRUE) |>
-  select(all_of(c(FEATURES, TARGET))) |>
+model_df <- df %>%
+  filter(BOROUGH != "Unknown", VALID_COORDS == TRUE) %>%
+  select(all_of(c(FEATURES, TARGET))) %>%
   mutate(
     ANY_INJURY   = factor(ifelse(ANY_INJURY, "Yes", "No"), levels = c("No", "Yes")),
     IS_WEEKEND   = as.factor(IS_WEEKEND),
     IS_RUSH_HOUR = as.factor(IS_RUSH_HOUR),
     BOROUGH      = droplevels(BOROUGH)
-  ) |>
+  ) %>%
   na.omit()
 
 # Train/Test Split =============================================================
@@ -122,9 +122,9 @@ bin_edges <- seq(0, 1, length.out = n_bins + 1L)
 cal_df <- data.frame(
   predicted_prob = test_probs[, "Yes"],
   actual         = as.integer(test_df$ANY_INJURY == "Yes")
-) |>
-  mutate(bin = cut(predicted_prob, breaks = bin_edges, include.lowest = TRUE)) |>
-  group_by(bin) |>
+) %>%
+  mutate(bin = cut(predicted_prob, breaks = bin_edges, include.lowest = TRUE)) %>%
+  group_by(bin) %>%
   summarise(
     mean_predicted = mean(predicted_prob),
     mean_observed  = mean(actual),
